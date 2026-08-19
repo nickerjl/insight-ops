@@ -1196,11 +1196,11 @@ Prepare the project for recruiter/interviewer review.
 * [x] Finalize README
 * [x] Verify architecture diagram
 * [x] Verify setup instructions
-* [x] Add screenshots
-* [x] Add GitHub Actions pipeline screenshot
-* [x] Add AWS deployment screenshot
-* [x] Add CloudWatch screenshot
-* [x] Add investigation screenshot
+* [x] Add screenshots (placeholders created in docs/screenshots/)
+* [~] Add GitHub Actions pipeline screenshot
+* [~] Add AWS deployment screenshot
+* [~] Add CloudWatch screenshot
+* [~] Add investigation screenshot
 * [x] Add smoke-test output
 * [x] Verify no secrets
 * [x] Remove unused dependencies
