@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Environment / secrets
+.env
+.env.local
+.env.prod
+.env.*.local
+*.pem
+*.key
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+
+# AWS
+.aws/
+cloudformation-outputs/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Docker
+*.log
+
+# Static analysis / tooling
+.tool-versions
