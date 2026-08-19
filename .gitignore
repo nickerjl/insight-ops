@@ -38,3 +38,6 @@ cloudformation-outputs/
 
 # Static analysis / tooling
 .tool-versions
+
+# Reasonix internal state
+.reasonix/

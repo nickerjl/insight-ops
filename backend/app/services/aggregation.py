@@ -117,8 +117,3 @@ def list_recent_events(redis, limit: int = 50) -> list[dict]:
         except (json.JSONDecodeError, TypeError):
             continue
     return events
-
-
-def get_aggregation(redis, fingerprint: str) -> Optional[dict]:
-    data = redis.hgetall(f"{AGGREGATION_PREFIX}{fingerprint}")
-    return data or None

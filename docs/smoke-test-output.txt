@@ -1,0 +1,14 @@
+InsightOps smoke tests against the local Docker Compose stack (BASE_URL=http://localhost:8000)
+
+tests/smoke/test_deployment.py::test_success_endpoint PASSED             [ 50%]
+tests/smoke/test_deployment.py::test_error_endpoint_returns_expected_status PASSED [ 66%]
+tests/smoke/test_deployment.py::test_error_is_aggregated PASSED          [ 83%]
+tests/smoke/test_deployment.py::test_investigation_can_be_created PASSED [100%]
+
+=============================== warnings summary ===============================
+../../../../private/tmp/smoke-venv/lib/python3.9/site-packages/urllib3/__init__.py:35
+  /private/tmp/smoke-venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+========================= 6 passed, 1 warning in 2.08s =========================

@@ -890,6 +890,21 @@ API Documentation:
 http://localhost:8000/docs
 ```
 
+## Backend-only (no Docker)
+
+Useful when only working on the backend (Redis required for task dispatch):
+
+```bash
+cd backend
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/uvicorn app.main:app --reload --port 8000
+# in a second terminal, run the worker:
+.venv/bin/dramatiq app.tasks
+```
+
+> The code targets Python 3.11+; the same suite also runs on 3.9 locally.
+
 ---
 
 # 🧪 Testing
@@ -898,11 +913,21 @@ InsightOps uses several levels of testing.
 
 ## Automated Tests
 
-Run before deployment:
+Backend unit/integration tests (pytest, no real Redis or network needed —
+a StubBroker + fakeredis are used):
+
+```bash
+cd backend
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -q
+```
+
+Example output:
 
 ```text
-Unit Tests
-Integration Tests
+................................  [100%]
+54 passed in 2.54s
 ```
 
 ## Health Checks
@@ -916,7 +941,11 @@ GET /ready
 
 ## API Smoke Tests
 
-Run against the actual deployed environment.
+Run against the actual deployed environment (or the local stack):
+
+```bash
+BASE_URL=http://localhost:8000 python -m pytest tests/smoke -q
+```
 
 The smoke tests verify:
 
@@ -924,8 +953,11 @@ The smoke tests verify:
 * critical endpoints
 * expected HTTP status codes
 * important response fields
+* the async error-aggregation flow (error -> fingerprint aggregation)
+* investigation creation + polling
 
-A smoke-test failure causes the CI/CD pipeline to fail.
+A smoke-test failure causes the CI/CD pipeline to fail. Captured output:
+`docs/smoke-test-output.txt`.
 
 ---
 

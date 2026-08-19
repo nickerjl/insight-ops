@@ -209,16 +209,3 @@ def _truncate_context(context: dict, max_chars: int) -> dict:
         used += size
     context["evidence"] = kept
     return context
-
-
-def recent_events_metadata(redis) -> dict:
-    """Lightweight stats used by the dashboard."""
-    events = list_recent_events(redis, limit=100)
-    counts: dict[str, int] = {}
-    for event in events:
-        error_type = event.get("error_type", "Unknown")
-        counts[error_type] = counts.get(error_type, 0) + 1
-    return {
-        "recent_events": len(events),
-        "by_type": counts,
-    }
