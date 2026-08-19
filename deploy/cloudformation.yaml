@@ -38,7 +38,7 @@ Parameters:
     Default: 127.0.0.1/32
     Description: >-
       CIDR allowed to SSH. FAIL-CLOSED default (no access); set to the
-      GitLab runner egress IP, e.g. 1.2.3.4/32.
+      GitHub Actions runner egress IP, e.g. 1.2.3.4/32.
   CloudFrontAccessIp:
     Type: String
     Default: 127.0.0.1/32
@@ -115,7 +115,7 @@ Resources:
           FromPort: 22
           ToPort: 22
           CidrIp: !Ref RunnerIp
-          Description: SSH (GitLab runner)
+          Description: SSH (GitHub Actions runner)
         - IpProtocol: tcp
           FromPort: 8000
           ToPort: 8000

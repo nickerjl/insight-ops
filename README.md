@@ -2,7 +2,7 @@
 
 InsightOps is a production-style, full-stack observability and AI-assisted debugging platform.
 
-The project demonstrates how to build, test, deploy, operate, and troubleshoot a modern Python backend end to end using AWS, Docker, GitLab CI/CD, structured logging, asynchronous processing, semantic retrieval, and LLM-assisted investigation.
+The project demonstrates how to build, test, deploy, operate, and troubleshoot a modern Python backend end to end using AWS, Docker, GitHub Actions, structured logging, asynchronous processing, semantic retrieval, and LLM-assisted investigation.
 
 This is intentionally a **portfolio demonstration**, not a replacement for commercial observability platforms such as Datadog or OpenSearch.
 
@@ -18,8 +18,8 @@ The goal is to demonstrate practical production engineering decisions while keep
 | Async Processing | Dramatiq + Redis |
 | Containerization | Docker |
 | AWS | EC2, IAM, CloudWatch, S3, CloudFront |
-| CI/CD | GitLab CI/CD |
-| Container Registry | GitLab Container Registry |
+| CI/CD | GitHub Actions |
+| Container Registry | GitHub Container Registry (GHCR) |
 | Deployment | Commit-tagged Docker image deployed to EC2 |
 | Verification | Health checks + post-deployment API smoke tests |
 | Logging | Structured JSON application logs |
@@ -46,20 +46,20 @@ The primary objective is:
                               Git Push
                                   │
                                   ▼
-                         ┌─────────────────┐
-                         │    GitLab CI    │
-                         │                 │
-                         │ Test            │
-                         │ Build           │
-                         │ Deploy          │
-                         │ Smoke Test      │
-                         └────────┬────────┘
+                         ┌──────────────────────┐
+                         │    GitHub Actions    │
+                         │                      │
+                         │ Test                 │
+                         │ Build                │
+                         │ Deploy               │
+                         │ Smoke Test           │
+                         └─────────┬────────────┘
                                   │
                          Build Docker Image
                                   │
                                   ▼
                     ┌──────────────────────────┐
-                    │ GitLab Container Registry│
+                    │ GitHub Container Registry│
                     │                          │
                     │ backend:<commit-sha>     │
                     └────────────┬─────────────┘
@@ -210,7 +210,7 @@ Build Backend Docker Image
    ↓
 Tag Image With Git Commit SHA
    ↓
-Push Image To GitLab Container Registry
+Push Image To GitHub Container Registry
    ↓
 Deploy Image To AWS EC2
    ↓
@@ -246,7 +246,7 @@ Developer
    │
    │ git push
    ▼
-GitLab
+GitHub Actions
    │
    ├── Tests
    │
@@ -255,7 +255,7 @@ GitLab
    └── Push Image
           │
           ▼
-GitLab Container Registry
+GitHub Container Registry
           │
           │ pull
           ▼
@@ -283,7 +283,7 @@ If the health check or smoke test fails, the deployment pipeline fails.
 
 A deployment is not considered successful simply because the Docker containers started.
 
-After deployment, GitLab CI runs a small Python-based API smoke-test suite against the actual deployed application.
+After deployment, GitHub Actions runs a small Python-based API smoke-test suite against the actual deployed application.
 
 These are **API smoke tests**, not browser-based E2E tests.
 
@@ -843,7 +843,7 @@ Actual AWS cost depends on region, traffic, storage, account eligibility, and cu
 * Docker
 * Docker Compose
 * AWS account for deployment
-* GitLab account
+* GitHub account
 * DeepSeek API key
 
 ---
@@ -851,7 +851,7 @@ Actual AWS cost depends on region, traffic, storage, account eligibility, and cu
 ## Clone
 
 ```bash
-git clone https://gitlab.com/<your-username>/insight-ops.git
+git clone https://github.com/<your-username>/insight-ops.git
 
 cd insight-ops
 ```
@@ -989,7 +989,7 @@ insight-ops/
 │       └── test_deployment.py
 │
 ├── docker-compose.yml
-├── .gitlab-ci.yml
+├── .github/workflows/ci.yml
 ├── .env.example
 ├── LICENSE
 ├── PROJECT_PLAN.md
@@ -1005,13 +1005,13 @@ The complete portfolio demonstration follows this flow:
 ```text
 1. Developer pushes code
         ↓
-2. GitLab CI runs tests
+2. GitHub Actions runs tests
         ↓
 3. Docker image is built
         ↓
 4. Image is tagged with commit SHA
         ↓
-5. Image is pushed to GitLab Container Registry
+5. Image is pushed to GitHub Container Registry
         ↓
 6. EC2 pulls the new image
         ↓

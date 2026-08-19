@@ -3,7 +3,7 @@
 #   IMAGE=<registry>/insight-ops/backend:<commit-sha> docker compose \
 #     -f docker-compose.prod.yml -p insight-ops up -d
 #
-# The exact commit-tagged image from GitLab CI is used (never `latest`).
+# The exact commit-tagged image from CI (GitHub Actions -> GHCR) is used (never `latest`).
 # Containers publish structured logs to CloudWatch via the awslogs driver
 # using the EC2 instance role (no credentials inside the image).
 #

@@ -11,5 +11,5 @@ Add portfolio screenshots here (Phase 20):
   `PaymentProviderTimeout` errors grouped under one fingerprint.
 - `investigation.png` — an investigation result for
   "Why are payment errors increasing?" (requires `DEEPSEEK_API_KEY`).
-- `pipeline.png` — the GitLab pipeline with test/build/deploy/smoke stages
+- `pipeline.png` — the GitHub Actions workflow with test/build/deploy/smoke stages
   green.

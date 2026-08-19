@@ -1,25 +1,26 @@
 #!/usr/bin/env bash
 # InsightOps EC2 deployment script.
 #
-# Runs on the GitLab runner (deploy stage). It:
+# Runs in CI (GitHub Actions deploy job). It:
 #   1. copies the production compose file + prod env to EC2
-#   2. authenticates to the GitLab Container Registry
+#   2. authenticates to the container registry (GHCR or any registry)
 #   3. pulls the exact commit-tagged backend image
 #   4. recreates the api + worker containers (redis data preserved)
 #   5. waits for the API health check
 #
-# Required environment (set as GitLab CI/CD variables):
-#   EC2_HOST, SSH_PRIVATE_KEY, CI_REGISTRY, CI_REGISTRY_USER,
-#   CI_REGISTRY_PASSWORD (or CI_JOB_TOKEN), CI_COMMIT_SHA,
-#   BACKEND_IMAGE, AWS_REGION
+# Required environment (set as GitHub Actions secrets / env):
+#   EC2_HOST, SSH_PRIVATE_KEY, REGISTRY, REGISTRY_USER,
+#   REGISTRY_PASSWORD, BACKEND_IMAGE, AWS_REGION
+#   (SSH_USER, DEPLOYMENT_URL, PROD_ENV_FILE are optional)
 #
 # This script NEVER prints secrets.
 set -euo pipefail
 
 : "${EC2_HOST:?EC2_HOST is required}"
-: "${CI_COMMIT_SHA:?CI_COMMIT_SHA is required}"
-: "${BACKEND_IMAGE:?BACKEND_IMAGE is required (e.g. registry.gitlab.com/ns/insight-ops/backend:<sha>)}"
-: "${CI_REGISTRY:?CI_REGISTRY is required}"
+: "${BACKEND_IMAGE:?BACKEND_IMAGE is required (e.g. ghcr.io/owner/insight-ops/backend:<sha>)}"
+: "${REGISTRY:?REGISTRY is required (e.g. ghcr.io)}"
+: "${REGISTRY_USER:?REGISTRY_USER is required}"
+: "${REGISTRY_PASSWORD:?REGISTRY_PASSWORD is required}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REMOTE_DIR="/opt/insight-ops"
@@ -58,17 +59,16 @@ else
 fi
 
 # --- 3. Login, pull, recreate containers ---------------------------------
-# CI_JOB_TOKEN works with GitLab's built-in registry auth; prefer it when set.
-REGISTRY_PASSWORD="${CI_REGISTRY_PASSWORD:-${CI_JOB_TOKEN:-}}"
+# REGISTRY_PASSWORD comes from CI (GitHub token or registry token) and is
+# passed over stdin — never embedded in a command line or logged.
 if [[ -z "$REGISTRY_PASSWORD" ]]; then
-  echo "CI_REGISTRY_PASSWORD / CI_JOB_TOKEN is required to pull images." >&2
+  echo "REGISTRY_PASSWORD is required to pull images." >&2
   exit 1
 fi
 
 echo "==> Deploying ${BACKEND_IMAGE}"
-# Password is passed over stdin, never embedded in a command line or logged.
 printf '%s' "$REGISTRY_PASSWORD" | ssh "${SSH_OPTS[@]}" "${SSH_USER}@${EC2_HOST}" \
-  "docker login ${CI_REGISTRY} -u '${CI_REGISTRY_USER}' --password-stdin"
+  "docker login ${REGISTRY} -u '${REGISTRY_USER}' --password-stdin"
 
 ssh "${SSH_OPTS[@]}" "${SSH_USER}@${EC2_HOST}" \
   "set -euo pipefail; \

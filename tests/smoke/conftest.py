@@ -1,6 +1,6 @@
 """Shared smoke-test fixtures.
 
-Smoke tests run against the ACTUAL deployed environment (GitLab CI smoke
+Smoke tests run against the ACTUAL deployed environment (GitHub Actions smoke
 stage). BASE_URL comes from the DEPLOYMENT_URL CI variable.
 """
 

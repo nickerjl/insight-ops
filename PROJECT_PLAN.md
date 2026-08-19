@@ -27,8 +27,8 @@ Build a small production-style full-stack application demonstrating:
 - AWS cloud deployment
 - IAM-based AWS access
 - Docker containerization
-- GitLab CI/CD
-- GitLab Container Registry
+- GitHub Actions (CI/CD)
+- GitHub Container Registry (GHCR)
 - Post-deployment API smoke testing
 - Asynchronous processing
 - Dramatiq + Redis
@@ -283,7 +283,7 @@ The image lifecycle is:
 ```text
 Source Code
     ↓
-GitLab CI
+GitHub Actions
     ↓
 Run Tests
     ↓
@@ -291,7 +291,7 @@ Build Backend Docker Image
     ↓
 Tag With Git Commit SHA
     ↓
-Push To GitLab Container Registry
+Push To GitHub Container Registry
     ↓
 EC2 Pulls Exact Image
     ↓
@@ -301,7 +301,7 @@ FastAPI + Worker Containers
 Example image:
 
 ```text
-registry.gitlab.com/<namespace>/insight-ops/backend:8f31a2c
+ghcr.io/<owner>/insight-ops/backend:8f31a2c
 ```
 
 The deployment must use the commit SHA tag.
@@ -329,7 +329,7 @@ Build Backend Docker Image
    ↓
 Tag Image With Commit SHA
    ↓
-Push Image To GitLab Container Registry
+Push Image To GitHub Container Registry
    ↓
 Deploy Image To EC2
    ↓
@@ -368,7 +368,7 @@ Create the repository structure and basic development conventions.
 * [x] Create frontend directory
 * [x] Create smoke-test directory
 * [x] Create initial Docker Compose file
-* [x] Create initial GitLab CI configuration
+* [x] Create initial GitHub Actions workflow
 * [x] Document environment variables
 
 ## Target Structure
@@ -380,7 +380,7 @@ insight-ops/
 ├── tests/
 │   └── smoke/
 ├── docker-compose.yml
-├── .gitlab-ci.yml
+├── .github/workflows/ci.yml
 ├── .env.example
 ├── LICENSE
 ├── PROJECT_PLAN.md
@@ -971,15 +971,15 @@ CloudFront
 
 ---
 
-# Phase 15 — GitLab Container Registry
+# Phase 15 — Container Registry (GitHub Container Registry)
 
 ## Goal
 
-Use GitLab Container Registry as the Docker image artifact repository.
+Use the GitHub Container Registry (GHCR) as the Docker image artifact repository.
 
 ## Tasks
 
-* [x] Configure GitLab Container Registry
+* [x] Configure GitHub Container Registry (GHCR)
 * [x] Configure CI authentication
 * [x] Build backend image
 * [x] Tag image with commit SHA
@@ -989,7 +989,7 @@ Use GitLab Container Registry as the Docker image artifact repository.
 ## Example
 
 ```text
-registry.gitlab.com/<namespace>/insight-ops/backend:<commit-sha>
+ghcr.io/<owner>/insight-ops/backend:<commit-sha>
 ```
 
 ## Acceptance Criteria
@@ -1001,7 +1001,7 @@ registry.gitlab.com/<namespace>/insight-ops/backend:<commit-sha>
 
 ---
 
-# Phase 16 — GitLab CI/CD
+# Phase 16 — CI/CD (GitHub Actions)
 
 ## Goal
 
@@ -1018,7 +1018,7 @@ Build Docker Image
    ↓
 Tag With Commit SHA
    ↓
-Push To GitLab Container Registry
+Push To GitHub Container Registry
    ↓
 Deploy To EC2
    ↓
@@ -1031,7 +1031,7 @@ Success
 
 ## Tasks
 
-* [x] Create `.gitlab-ci.yml`
+* [x] Create `.github/workflows/ci.yml`
 * [x] Add test stage
 * [x] Add Docker build stage
 * [x] Add registry push
@@ -1050,12 +1050,12 @@ Success
 
 ## Goal
 
-Deploy the exact Docker image produced by GitLab CI.
+Deploy the exact Docker image produced by GitHub Actions.
 
 ## Deployment Flow
 
 ```text
-GitLab CI
+GitHub Actions
    │
    │ build
    ▼
@@ -1067,7 +1067,7 @@ Backend Docker Image
    │
    │ push
    ▼
-GitLab Container Registry
+GitHub Container Registry
    │
    │ pull
    ▼
@@ -1083,7 +1083,7 @@ EC2
 ## Tasks
 
 * [x] Configure EC2 deployment script
-* [x] Authenticate to GitLab Registry
+* [x] Authenticate to GitHub Container Registry
 * [x] Pull commit-specific image
 * [x] Stop/recreate API container
 * [x] Stop/recreate worker container
@@ -1146,7 +1146,7 @@ assert response.status_code == 200
 
 * [x] Smoke tests pass against healthy deployment
 * [x] Broken API causes test failure
-* [x] GitLab CI detects failure
+* [x] GitHub Actions detects failure
 * [x] Failed smoke test marks deployment pipeline failed
 
 ---
@@ -1197,7 +1197,7 @@ Prepare the project for recruiter/interviewer review.
 * [x] Verify architecture diagram
 * [x] Verify setup instructions
 * [x] Add screenshots
-* [x] Add GitLab pipeline screenshot
+* [x] Add GitHub Actions pipeline screenshot
 * [x] Add AWS deployment screenshot
 * [x] Add CloudWatch screenshot
 * [x] Add investigation screenshot
@@ -1216,7 +1216,7 @@ The final demo should show:
 ```text
 1. Git Push
       ↓
-2. GitLab CI
+2. GitHub Actions
       ↓
 3. Automated Tests
       ↓
@@ -1224,7 +1224,7 @@ The final demo should show:
       ↓
 5. Commit SHA Tag
       ↓
-6. Push To GitLab Container Registry
+6. Push To GitHub Container Registry
       ↓
 7. EC2 Pulls Image
       ↓
@@ -1314,7 +1314,7 @@ per-phase commits and the checklist markers above.
 
 ## In Progress
 
-* [~] Screenshots (dashboard, CloudWatch Logs Insights, GitLab pipeline,
+* [~] Screenshots (dashboard, CloudWatch Logs Insights, GitHub Actions pipeline,
   investigation) — placeholders in `docs/screenshots/`; capture real
   screenshots after the first live deployment.
 
@@ -1324,7 +1324,7 @@ per-phase commits and the checklist markers above.
 
 ## Next Step
 
-Optionally: live AWS deployment + GitLab pipeline run (see
+Optionally: live AWS deployment + GitHub Actions pipeline run (see
 `docs/DEPLOYMENT.md`), then capture the screenshots.
 
 ---
@@ -1337,7 +1337,7 @@ Optionally: live AWS deployment + GitLab pipeline run (see
 | Dramatiq + Redis                 | Simple async processing with retry/backoff                              |
 | No PostgreSQL                    | No persistent relational data requirement                               |
 | CloudWatch instead of OpenSearch | AWS-native, simpler, lower infrastructure cost                          |
-| GitLab Container Registry        | Natural integration with GitLab CI/CD                                   |
+| GitHub Container Registry        | Natural integration with GitHub Actions                                |
 | Commit SHA image tags            | Traceable and reproducible deployments                                  |
 | EC2 Docker deployment            | Demonstrates containerized AWS deployment without Kubernetes complexity |
 | S3 + CloudFront for React        | Appropriate for static frontend hosting                                 |
@@ -1427,7 +1427,7 @@ InsightOps is complete when:
 * [x] Tests run automatically
 * [x] Docker image built
 * [x] Image tagged with commit SHA
-* [x] Image pushed to GitLab Registry
+* [x] Image pushed to GitHub Container Registry
 * [x] EC2 pulls exact image
 * [x] Deployment automated
 * [x] Health check runs
@@ -1490,11 +1490,11 @@ AWS
 └── CloudWatch
 
 CI/CD
-GitLab
+GitHub Actions
 ├── test
 ├── build Docker image
 ├── tag :<commit-sha>
-├── push → GitLab Container Registry
+├── push → GitHub Container Registry
 └── deploy → EC2
         ↓
    health check
