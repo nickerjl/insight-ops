@@ -52,8 +52,9 @@ Mappings:
   # region before deploying. Look them up with:
   #   aws ssm get-parameter --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64 --query Parameter.Value
   RegionMap:
-    us-east-1: { Ami: ami-REPLACE-ME }
-    eu-west-1: { Ami: ami-REPLACE-ME }
+    us-east-1: { Ami: ami-0332d564d76dbd8d6 }
+    eu-west-1: { Ami: ami-01a47a61359451e7d }
+    ap-southeast-1: { Ami: ami-0d247eb021c5394df }
 
 Resources:
   # --- Networking ---------------------------------------------------------
