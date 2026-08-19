@@ -76,7 +76,7 @@ ssh "${SSH_OPTS[@]}" "${SSH_USER}@${EC2_HOST}" \
    BACKEND_IMAGE='${BACKEND_IMAGE}' AWS_REGION='${AWS_REGION:-eu-west-1}' \
      docker compose -f docker-compose.prod.yml -p insight-ops pull api worker; \
    BACKEND_IMAGE='${BACKEND_IMAGE}' AWS_REGION='${AWS_REGION:-eu-west-1}' \
-     docker compose -f docker-compose.prod.yml -p insight-ops up -d --no-deps api worker"
+     docker compose -f docker-compose.prod.yml -p insight-ops up -d"
 
 # --- 4. Health check (bounded retries) ------------------------------------
 echo "==> Waiting for API health check"
