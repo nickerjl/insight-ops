@@ -1,0 +1,276 @@
+# InsightOps AWS infrastructure — CloudFormation
+#
+# Deploy:
+#   aws cloudformation deploy \
+#     --template-file deploy/cloudformation.yaml \
+#     --stack-name insight-ops \
+#     --parameter-overrides KeyPairName=your-key \
+#     --capabilities CAPABILITY_IAM
+#
+# Creates:
+#   - a minimal VPC (public subnet + internet gateway)
+#   - EC2 instance (Amazon Linux 2023, Docker pre-installed via user-data)
+#   - EC2 IAM instance role (minimal: CloudWatch logs only)
+#   - CloudWatch log group with retention
+#   - private S3 bucket for the React build (CloudFront OAC)
+#   - CloudFront distribution serving the S3 frontend
+#
+# After deploy, run the CI/CD pipeline or deploy/deploy_ec2.sh to ship the app.
+AWSTemplateFormatVersion: "2010-09-09"
+Description: InsightOps observability platform infrastructure (portfolio).
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [prod]
+  InstanceType:
+    Type: String
+    Default: t3.micro
+  KeyPairName:
+    Type: String
+    Description: Existing EC2 key pair name used for SSH access.
+  LogRetentionDays:
+    Type: Number
+    Default: 7
+  RunnerIp:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR allowed to SSH and reach the API (ideally the GitLab runner IP).
+  CloudFrontAccessIp:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR allowed to reach the API on :8000. Production would front the API with ALB/CloudFront instead.
+
+Mappings:
+  # PLACEHOLDER AMI IDs — replace with real Amazon Linux 2023 AMI IDs for your
+  # region before deploying. Look them up with:
+  #   aws ssm get-parameter --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64 --query Parameter.Value
+  RegionMap:
+    us-east-1: { Ami: ami-REPLACE-ME }
+    eu-west-1: { Ami: ami-REPLACE-ME }
+
+Resources:
+  # --- Networking ---------------------------------------------------------
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{ Key: Name, Value: insight-ops-vpc }]
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: [{ Key: Name, Value: insight-ops-igw }]
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags: [{ Key: Name, Value: insight-ops-public }]
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # --- Security -----------------------------------------------------------
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: InsightOps EC2 access
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref RunnerIp
+          Description: SSH (GitLab runner)
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: !Ref CloudFrontAccessIp
+          Description: API HTTP
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  # --- IAM (instance role: CloudWatch logs only, scoped to the log group) --
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InsightOpsCloudWatchLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource: !Sub ${AppLogGroup.Arn}:*
+              - Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                Resource: "*"
+      Tags: [{ Key: Name, Value: insight-ops-ec2-role }]
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  # --- EC2 ----------------------------------------------------------------
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", Ami]
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds: [!Ref InstanceSecurityGroup]
+      IamInstanceProfile: !Ref InstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          dnf install -y docker
+          systemctl enable --now docker
+          usermod -aG docker ec2-user
+          DOCKER_COMPOSE_VERSION="v2.29.1"
+          curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          mkdir -p /opt/insight-ops
+          echo "InsightOps EC2 bootstrap complete"
+      Tags:
+        - { Key: Name, Value: insight-ops-ec2 }
+        - { Key: Environment, Value: !Ref Environment }
+
+  # --- CloudWatch ---------------------------------------------------------
+  AppLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /insight-ops/${Environment}
+      RetentionInDays: !Ref LogRetentionDays
+
+  # --- Frontend hosting: S3 + CloudFront ----------------------------------
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub insight-ops-frontend-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags: [{ Key: Name, Value: insight-ops-frontend }]
+
+  CloudFrontOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: insight-ops-frontend-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub ${FrontendBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Comment: InsightOps frontend
+        Origins:
+          - Id: S3Frontend
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            OriginAccessControlId: !Ref CloudFrontOriginAccessControl
+            S3OriginConfig: {}
+        DefaultCacheBehavior:
+          TargetOriginId: S3Frontend
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          ForwardedValues:
+            QueryString: false
+            Cookies: { Forward: none }
+        ErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        PriceClass: PriceClass_100
+
+Outputs:
+  Ec2PublicIp:
+    Description: EC2 public IP (set EC2_HOST CI variable to this)
+    Value: !GetAtt Ec2Instance.PublicIp
+  Ec2PublicDns:
+    Description: EC2 public DNS name
+    Value: !GetAtt Ec2Instance.PublicDnsName
+  FrontendUrl:
+    Description: CloudFront URL of the React dashboard
+    Value: !GetAtt CloudFrontDistribution.DomainName
+  ApiUrl:
+    Description: Base URL for API smoke tests (DEPLOYMENT_URL CI variable)
+    Value: !Sub http://${Ec2Instance.PublicDnsName}:8000
+  FrontendBucketName:
+    Description: S3 bucket to sync the React build to (S3_FRONTEND_BUCKET CI variable)
+    Value: !Ref FrontendBucket
+  CloudFrontDistributionId:
+    Description: CloudFront distribution id (CLOUDFRONT_DISTRIBUTION_ID CI variable)
+    Value: !Ref CloudFrontDistribution
+  LogGroupName:
+    Description: CloudWatch log group receiving application logs
+    Value: !Ref AppLogGroup

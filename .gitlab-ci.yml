@@ -1,0 +1,112 @@
+# InsightOps GitLab CI/CD pipeline.
+#
+#   push -> test -> build+push image (commit-sha tag) -> deploy EC2 + S3
+#        -> health check -> API smoke tests
+#
+# Required CI/CD variables (Settings > CI/CD > Variables, all masked/protected):
+#   DEEPSEEK_API_KEY        - DeepSeek API key for the deployed environment
+#   SSH_PRIVATE_KEY         - private key for the EC2 deploy user
+#   SSH_USER                - EC2 SSH user (default ec2-user)
+#   EC2_HOST                - EC2 public DNS/IP
+#   DEPLOYMENT_URL          - e.g. http://<ec2-public-dns>:8000
+#   AWS_ACCESS_KEY_ID       - CI runner credentials for S3/CloudFront
+#   AWS_SECRET_ACCESS_KEY
+#   AWS_DEFAULT_REGION
+#   S3_FRONTEND_BUCKET      - from CloudFormation output FrontendBucketName
+#   CLOUDFRONT_DISTRIBUTION_ID
+#   PROD_ENV_FILE           - (optional) path to the prod .env to upload
+#
+# Secrets are only referenced as variables, never written to the repo.
+
+stages:
+  - test
+  - build
+  - deploy
+  - smoke
+
+variables:
+  # Shared by all jobs.
+  BACKEND_IMAGE: ${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHA}
+  DOCKER_TLS_CERTDIR: ""
+
+# --------------------------------------------------------------------------
+# Stage: test
+# --------------------------------------------------------------------------
+test:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install --no-cache-dir -r backend/requirements-dev.txt
+    - cd backend && python -m pytest -q
+  cache:
+    key: pip-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .pip-cache
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# --------------------------------------------------------------------------
+# Stage: build
+# --------------------------------------------------------------------------
+build-backend:
+  stage: build
+  image: docker:24-cli
+  services:
+    - docker:24-dind
+  script:
+    # Fail fast: do not publish broken images.
+    - docker build -t ${BACKEND_IMAGE} ./backend
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+    - docker push ${BACKEND_IMAGE}
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# --------------------------------------------------------------------------
+# Stage: deploy
+# --------------------------------------------------------------------------
+deploy-backend:
+  stage: deploy
+  image: alpine:3.20
+  before_script:
+    - apk add --no-cache openssh-client bash curl
+  script:
+    - chmod +x deploy/deploy_ec2.sh
+    - ./deploy/deploy_ec2.sh
+  environment:
+    name: production
+    url: ${DEPLOYMENT_URL}
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+deploy-frontend:
+  stage: deploy
+  image: node:18-alpine
+  before_script:
+    - apk add --no-cache python3 py3-pip curl
+    - pip3 install --break-system-packages awscli --quiet
+  script:
+    - cd frontend
+    - npm install --no-audit --no-fund
+    - VITE_API_BASE_URL=${DEPLOYMENT_URL} npm run build
+    - aws s3 sync dist s3://${S3_FRONTEND_BUCKET} --delete
+    - aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} --paths "/*"
+  environment:
+    name: production
+    url: ${DEPLOYMENT_URL}
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# --------------------------------------------------------------------------
+# Stage: smoke (post-deployment API smoke tests)
+# --------------------------------------------------------------------------
+smoke:
+  stage: smoke
+  image: python:3.11-slim
+  script:
+    - pip install --no-cache-dir -r tests/smoke/requirements.txt
+    - BASE_URL=${DEPLOYMENT_URL} python -m pytest tests/smoke -q
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  needs:
+    - deploy-backend
