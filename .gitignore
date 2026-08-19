@@ -41,3 +41,6 @@ cloudformation-outputs/
 
 # Reasonix internal state
 .reasonix/
+
+# GitHub deploy key (local only, move to ~/.ssh)
+.ssh-keys/
