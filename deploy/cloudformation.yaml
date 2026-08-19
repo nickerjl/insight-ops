@@ -178,6 +178,7 @@ Resources:
           dnf install -y docker
           systemctl enable --now docker
           usermod -aG docker ec2-user
+          mkdir -p /usr/local/lib/docker/cli-plugins
           curl -L "https://github.com/docker/compose/releases/download/v2.29.1/docker-compose-linux-$(uname -m)" \
             -o /usr/local/lib/docker/cli-plugins/docker-compose
           chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
