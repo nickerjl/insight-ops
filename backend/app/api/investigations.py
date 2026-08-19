@@ -38,6 +38,11 @@ def create_investigation(payload: InvestigationRequest) -> dict:
         state = create_task(get_redis(), kind="investigation")
         run_investigation_task.send(payload.query, task_id=state["task_id"])
     except redis.exceptions.RedisError:
+        # Remove the dangling queued task created above if enqueue failed.
+        try:
+            get_redis().delete(f"insightops:tasks:{state['task_id']}")
+        except Exception:
+            pass
         return JSONResponse(
             status_code=503,
             content={"error": {"type": "RedisUnavailable", "message": "Task dispatch unavailable"}},

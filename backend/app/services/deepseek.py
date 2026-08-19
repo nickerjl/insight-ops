@@ -81,7 +81,8 @@ class DeepSeekClient:
             raise DeepSeekError("DeepSeek request timed out", transient=True) from exc
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
-            transient = 500 <= status < 600
+            # Transient: 5xx, plus 408 (timeout) and 429 (rate limit).
+            transient = 500 <= status < 600 or status in (408, 429)
             raise DeepSeekError(
                 f"DeepSeek API returned HTTP {status}", transient=transient
             ) from exc

@@ -7,7 +7,7 @@
 #
 # The production deployment path builds `dist/` and uploads it to S3; nginx
 # here is only a convenience for container-based demos.
-FROM node:18.20.4-alpine AS build
+FROM node:20.15.1-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 # npm install (not ci) so the image builds without a committed lockfile;
@@ -16,12 +16,14 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-FROM node:18.20.4-alpine AS development
+FROM node:20.15.1-alpine AS development
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-# node images ship an unprivileged `node` user.
+# node images ship an unprivileged `node` user; give it ownership of the
+# tree (npm install ran as root) so Vite can write its dep cache.
+RUN chown -R node:node /app
 USER node
 EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

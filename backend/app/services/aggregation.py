@@ -42,19 +42,21 @@ def record_error_event(redis, event: dict) -> dict:
     Returns the event enriched with its fingerprint.
     """
     settings = get_settings()
+    # Scrub secret-like values out of free text BEFORE fingerprinting and
+    # storage, so two occurrences differing only in an embedded rotating
+    # token group under one fingerprint (and never reach the LLM prompt).
+    error_message = redact_text(str(event.get("error_message", ""))) if event.get("error_message") else ""
+    event["error_message"] = error_message
+
     fingerprint = build_fingerprint(
         service=event.get("service", settings.service_name),
         endpoint=event.get("endpoint", ""),
         exception_type=event.get("error_type", "UnknownError"),
-        message=event.get("error_message", ""),
+        message=error_message,
     )
     event["fingerprint"] = fingerprint
     event.setdefault("service", settings.service_name)
     event.setdefault("commit_hash", settings.commit_hash)
-    # Scrub secret-like values out of free text before it is stored (Redis
-    # evidence can later be forwarded to the LLM investigation prompt).
-    if event.get("error_message"):
-        event["error_message"] = redact_text(str(event["error_message"]))
 
     now = time.time()
     payload = {field: event.get(field) for field in _EVENT_FIELDS}

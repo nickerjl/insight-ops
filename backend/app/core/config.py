@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # --- CORS ------------------------------------------------------------
     cors_origins: str = "http://localhost:5173,http://localhost:8080"
 
+    # Set true only when a trusted proxy (ALB/CloudFront) terminates the
+    # connection; gates use of the X-Forwarded-For header for logging.
+    trust_proxy_headers: bool = False
+
     # --- error aggregation / retrieval -----------------------------------
     error_aggregation_ttl: int = 86400
     investigation_ttl: int = 3600

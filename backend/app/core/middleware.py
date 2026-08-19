@@ -19,11 +19,12 @@ _REQUEST_ID_HEADER = "X-Request-ID"
 
 
 def _client_ip(request: Request) -> str:
-    # Trust X-Forwarded-For only when the service sits behind a trusted
-    # proxy (CloudFront/ALB). A direct client can spoof this header; the
-    # value is used for logging/observability only, never for auth.
+    # Trust X-Forwarded-For only when a trusted proxy (ALB/CloudFront)
+    # terminates the connection (TRUST_PROXY_HEADERS=true). A direct client
+    # can spoof this header; the value is used for logging/observability
+    # only, never for auth.
     forwarded = request.headers.get("x-forwarded-for")
-    if forwarded and get_settings().app_env == "prod":
+    if forwarded and get_settings().trust_proxy_headers:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
 
