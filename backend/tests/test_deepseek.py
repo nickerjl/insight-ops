@@ -99,35 +99,48 @@ def test_deepseek_success_returns_structured_result(fake_redis, monkeypatch):
 
 
 @respx.mock
-def test_deepseek_http_error_fails_gracefully(fake_redis, monkeypatch):
+def test_deepseek_http_500_is_transient(fake_redis, monkeypatch):
+    """5xx responses are transient: the service re-raises so the task retries."""
     _enable_deepseek(monkeypatch)
     _seed_payment_errors(fake_redis)
     respx.post("https://api.deepseek.com/chat/completions").mock(
         return_value=httpx.Response(500, text="boom")
     )
 
-    outcome = run_investigation("Why are payments failing?")
-    assert outcome["status"] == "failed"
-    assert outcome["error"]["type"] == "DeepSeekError"
-    assert "500" in outcome["error"]["message"]
+    with pytest.raises(DeepSeekError) as excinfo:
+        run_investigation("Why are payments failing?")
+    assert excinfo.value.transient is True
 
 
 @respx.mock
-def test_deepseek_timeout_fails_gracefully(fake_redis, monkeypatch):
+def test_deepseek_timeout_is_transient(fake_redis, monkeypatch):
     _enable_deepseek(monkeypatch)
     _seed_payment_errors(fake_redis)
     respx.post("https://api.deepseek.com/chat/completions").mock(
         side_effect=httpx.ConnectTimeout("timed out")
     )
 
-    outcome = run_investigation("Why are payments failing?")
-    assert outcome["status"] == "failed"
-    assert outcome["error"]["type"] == "DeepSeekError"
-    assert "timed out" in outcome["error"]["message"]
+    with pytest.raises(DeepSeekError) as excinfo:
+        run_investigation("Why are payments failing?")
+    assert excinfo.value.transient is True
 
 
 @respx.mock
-def test_deepseek_invalid_json_fails_gracefully(fake_redis, monkeypatch):
+def test_deepseek_auth_error_is_non_transient(fake_redis, monkeypatch):
+    """4xx auth errors will not succeed on retry -> graceful failed outcome."""
+    _enable_deepseek(monkeypatch)
+    _seed_payment_errors(fake_redis)
+    respx.post("https://api.deepseek.com/chat/completions").mock(
+        return_value=httpx.Response(401, text="unauthorized")
+    )
+
+    outcome = run_investigation("Why are payments failing?")
+    assert outcome["status"] == "failed"
+    assert outcome["error"]["type"] == "DeepSeekError"
+
+
+@respx.mock
+def test_deepseek_invalid_json_is_non_transient(fake_redis, monkeypatch):
     _enable_deepseek(monkeypatch)
     _seed_payment_errors(fake_redis)
     respx.post("https://api.deepseek.com/chat/completions").mock(

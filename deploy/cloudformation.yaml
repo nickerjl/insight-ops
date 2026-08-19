@@ -35,12 +35,17 @@ Parameters:
     Default: 7
   RunnerIp:
     Type: String
-    Default: 0.0.0.0/0
-    Description: CIDR allowed to SSH and reach the API (ideally the GitLab runner IP).
+    Default: 127.0.0.1/32
+    Description: >-
+      CIDR allowed to SSH. FAIL-CLOSED default (no access); set to the
+      GitLab runner egress IP, e.g. 1.2.3.4/32.
   CloudFrontAccessIp:
     Type: String
-    Default: 0.0.0.0/0
-    Description: CIDR allowed to reach the API on :8000. Production would front the API with ALB/CloudFront instead.
+    Default: 127.0.0.1/32
+    Description: >-
+      CIDR allowed to reach the API on :8000 (plain HTTP, no auth). FAIL-CLOSED
+      default; set to your client/runner CIDR. Production would front the API
+      with ALB/CloudFront + TLS and add auth/rate limiting instead.
 
 Mappings:
   # PLACEHOLDER AMI IDs — replace with real Amazon Linux 2023 AMI IDs for your

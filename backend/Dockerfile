@@ -1,7 +1,8 @@
 # InsightOps backend image.
 # The SAME image runs both the API (uvicorn) and the Dramatiq worker
 # (dramatiq app.tasks) — see docker-compose.yml.
-FROM python:3.11-slim
+# Base image is pinned to a minor tag; consider digest pinning in CI.
+FROM python:3.11.9-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -19,6 +20,11 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+
+# Run as an unprivileged user (defense in depth).
+RUN useradd --create-home --shell /usr/sbin/nologin appuser \
+    && chown -R appuser:appuser /app
+USER appuser
 
 EXPOSE 8000
 

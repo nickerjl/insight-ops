@@ -19,11 +19,20 @@ _client = None
 
 
 def get_redis() -> redis_lib.Redis:
-    """Return a lazily-initialized Redis client (safe to call from tests)."""
+    """Return a lazily-initialized Redis client (safe to call from tests).
+
+    Timeouts are bounded so that a degraded/partitioned Redis returns 503
+    quickly instead of hanging request handlers indefinitely.
+    """
     global _client
     if _client is None:
         settings = get_settings()
-        _client = redis_lib.Redis.from_url(settings.redis_url, decode_responses=True)
+        _client = redis_lib.Redis.from_url(
+            settings.redis_url,
+            decode_responses=True,
+            socket_connect_timeout=2,
+            socket_timeout=5,
+        )
     return _client
 
 

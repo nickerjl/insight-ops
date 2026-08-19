@@ -15,6 +15,7 @@ import time
 from typing import Optional
 
 from app.core.config import get_settings
+from app.logging.formatters import redact_text
 from app.services.fingerprint import build_fingerprint
 
 EVENTS_KEY = "insightops:error_events:recent"
@@ -50,6 +51,10 @@ def record_error_event(redis, event: dict) -> dict:
     event["fingerprint"] = fingerprint
     event.setdefault("service", settings.service_name)
     event.setdefault("commit_hash", settings.commit_hash)
+    # Scrub secret-like values out of free text before it is stored (Redis
+    # evidence can later be forwarded to the LLM investigation prompt).
+    if event.get("error_message"):
+        event["error_message"] = redact_text(str(event["error_message"]))
 
     now = time.time()
     payload = {field: event.get(field) for field in _EVENT_FIELDS}

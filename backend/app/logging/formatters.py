@@ -39,6 +39,23 @@ SENSITIVE_FIELD_PATTERNS = (
 
 _REDACTED = "[REDACTED]"
 
+# Value-level secret patterns (applied in addition to key-name redaction).
+_SECRET_VALUE_PATTERNS = (
+    re.compile(r"Bearer [A-Za-z0-9._~+/\-=]+"),
+    re.compile(r"\b(sk|pk)-[A-Za-z0-9]{16,}\b"),  # OpenAI/DeepSeek style keys
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),  # AWS access key ids
+    re.compile(r"\b(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9._-]{10,})\b"),  # JWTs
+    re.compile(r"(?i)(api[_-]?key|secret|passw[o]?rd|token)\s*[=:]\s*[^\s&,;'\"]+"),
+)
+
+
+def redact_text(value: str) -> str:
+    """Scrub secret-like values from free-text fields."""
+    redacted = value
+    for pattern in _SECRET_VALUE_PATTERNS:
+        redacted = pattern.sub(_REDACTED, redacted)
+    return redacted
+
 
 def _is_sensitive_key(key: str) -> bool:
     lowered = key.lower()
@@ -53,6 +70,10 @@ def redact(value: Any, key: str = "") -> Any:
         return {k: redact(v, str(k)) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [redact(v, key) for v in value]
+    if isinstance(value, str):
+        # Defense in depth: scrub secret-like patterns from free text too
+        # (error messages can embed credentials / tokens / URLs).
+        return redact_text(value)
     return value
 
 

@@ -71,3 +71,28 @@ def test_llm_failure_marks_task_failed(fake_redis, client, broker, monkeypatch):
     body = client.get(f"/api/investigations/{investigation_id}").json()
     assert body["status"] == "failed"
     assert body["error"]["type"] == "DeepSeekError"
+
+
+def test_transient_llm_failure_retries_then_fails(fake_redis, client, broker, monkeypatch):
+    """Transient LLM errors trigger Dramatiq retries (1 attempt + 3 retries),
+    then the task ends in 'failed' instead of dead-lettering silently."""
+    from app.services.deepseek import DeepSeekError
+    from app.tasks import investigate as investigate_task_module
+
+    calls = {"n": 0}
+
+    def _flaky(query):
+        calls["n"] += 1
+        raise DeepSeekError("transient boom", transient=True)
+
+    monkeypatch.setattr(investigate_task_module, "run_investigation", _flaky)
+
+    response = client.post("/api/investigations", json={"query": "why"})
+    investigation_id = response.json()["investigation_id"]
+
+    _process_queued(broker)
+
+    body = client.get(f"/api/investigations/{investigation_id}").json()
+    assert body["status"] == "failed"
+    assert "after retries" in body["error"]["message"]
+    assert calls["n"] == 4  # initial attempt + 3 retries (max_retries=3)

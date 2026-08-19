@@ -10,6 +10,7 @@ from typing import Optional
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
+from app.core.config import get_settings
 from app.logging.context import reset_request_id, set_request_id
 
 logger = logging.getLogger("app.request")
@@ -18,8 +19,11 @@ _REQUEST_ID_HEADER = "X-Request-ID"
 
 
 def _client_ip(request: Request) -> str:
+    # Trust X-Forwarded-For only when the service sits behind a trusted
+    # proxy (CloudFront/ALB). A direct client can spoof this header; the
+    # value is used for logging/observability only, never for auth.
     forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
+    if forwarded and get_settings().app_env == "prod":
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
 

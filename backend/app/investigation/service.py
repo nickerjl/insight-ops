@@ -97,11 +97,18 @@ def run_investigation(query: str) -> dict:
         )
         return {"status": "completed", "result": result.model_dump()}
     except DeepSeekError as exc:
+        if exc.transient:
+            # Transient LLM failures (timeout/5xx) are re-raised so the
+            # Dramatiq task can retry with backoff instead of failing once.
+            raise
         logger.error(
-            "investigation failed",
-            extra={"query": query[:120], "error_type": exc.error_type, "error_message": str(exc)},
+            "investigation failed (non-transient)",
+            extra={"query": query[:120], "error_type": exc.error_type, "error_message": exc.message},
         )
-        return {"status": "failed", "error": {"type": exc.error_type, "message": str(exc)}}
+        return {
+            "status": "failed",
+            "error": {"type": exc.error_type, "message": exc.message},
+        }
     except Exception as exc:  # defensive: never crash the worker
         logger.error("investigation failed unexpectedly", exc_info=True)
         return {

@@ -23,9 +23,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REMOTE_DIR="/opt/insight-ops"
-SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
 
-# --- 1. Configure SSH -----------------------------------------------------
+# --- 1. Configure SSH (host key verified via ssh-keyscan TOFU) -------------
 if [[ -z "${SSH_PRIVATE_KEY:-}" ]]; then
   echo "SSH_PRIVATE_KEY is not set; skipping deployment." >&2
   exit 1
@@ -36,6 +35,15 @@ eval "$(ssh-agent -s -a "$SSH_AUTH_SOCK_DIR/agent.sock" >/dev/null)"
 printf '%s\n' "$SSH_PRIVATE_KEY" | ssh-add - >/dev/null
 
 SSH_USER="${SSH_USER:-ec2-user}"
+
+# Trust-on-first-use host key pinning: record the host key before connecting
+# so StrictHostKeyChecking actually verifies subsequent connections.
+KNOWN_HOSTS="$SSH_AUTH_SOCK_DIR/known_hosts"
+ssh-keyscan -T 10 "$EC2_HOST" >"$KNOWN_HOSTS" 2>/dev/null || {
+  echo "ssh-keyscan failed for $EC2_HOST" >&2
+  exit 1
+}
+SSH_OPTS=(-o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS" -o LogLevel=ERROR)
 
 # --- 2. Copy compose + environment to EC2 --------------------------------
 echo "==> Copying deployment files to ${EC2_HOST}"

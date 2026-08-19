@@ -8,7 +8,9 @@
 
 services:
   redis:
-    image: redis:7-alpine
+    # DEV ONLY: Redis is published to the host with no password. The
+    # production stack (deploy/docker-compose.prod.yml) does NOT expose it.
+    image: redis:7.4-alpine
     restart: unless-stopped
     ports:
       - "6379:6379"

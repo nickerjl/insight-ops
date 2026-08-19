@@ -27,8 +27,14 @@ def dispatch_demo_task(payload: DemoTaskRequest) -> dict:
     """Enqueue a deterministic demo task (async, non-blocking)."""
     from app.tasks.demo_tasks import demo_task
 
-    state = create_task(get_redis(), kind=f"demo:{payload.kind}")
-    demo_task.send(payload.kind, task_id=state["task_id"])
+    try:
+        state = create_task(get_redis(), kind=f"demo:{payload.kind}")
+        demo_task.send(payload.kind, task_id=state["task_id"])
+    except redis.exceptions.RedisError:
+        return JSONResponse(
+            status_code=503,
+            content={"error": {"type": "RedisUnavailable", "message": "Task dispatch unavailable"}},
+        )
     return {"task_id": state["task_id"], "status": state["status"]}
 
 

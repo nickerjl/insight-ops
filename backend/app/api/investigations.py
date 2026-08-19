@@ -34,8 +34,14 @@ def create_investigation(payload: InvestigationRequest) -> dict:
     """Accept a natural-language query and dispatch an async investigation."""
     from app.tasks.investigate import run_investigation_task
 
-    state = create_task(get_redis(), kind="investigation")
-    run_investigation_task.send(payload.query, task_id=state["task_id"])
+    try:
+        state = create_task(get_redis(), kind="investigation")
+        run_investigation_task.send(payload.query, task_id=state["task_id"])
+    except redis.exceptions.RedisError:
+        return JSONResponse(
+            status_code=503,
+            content={"error": {"type": "RedisUnavailable", "message": "Task dispatch unavailable"}},
+        )
     return {
         "investigation_id": state["task_id"],
         "status": state["status"],

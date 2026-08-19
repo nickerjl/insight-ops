@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 
-from app.logging.formatters import JsonFormatter, redact
+from app.logging.formatters import JsonFormatter, redact, redact_text
 
 
 def _make_record(message: str, level: int = logging.INFO, **extra) -> logging.LogRecord:
@@ -78,6 +78,40 @@ def test_sensitive_values_are_redacted():
     assert payload["body"]["name"] == "alice"
     assert payload["safe"]["count"] == 3
     assert payload["request_id"] == "abc"
+
+
+def test_secret_patterns_scrubbed_from_free_text():
+    message = (
+        "auth failed: Authorization Bearer abc123.def456 "
+        "key=sk-abcdefghijklmnopqrstuvwxyz123456 "
+        "aws=AKIAIOSFODNN7EXAMPLE"
+    )
+    scrubbed = redact_text(message)
+    assert "abc123.def456" not in scrubbed
+    assert "sk-abcdefghijklmnopqrstuvwxyz123456" not in scrubbed
+    assert "AKIAIOSFODNN7EXAMPLE" not in scrubbed
+    assert scrubbed.count("[REDACTED]") == 3
+
+
+def test_redaction_applied_at_aggregation_boundary(fake_redis):
+    """Error messages with embedded secrets are scrubbed before storage so
+    they never reach the evidence store or the LLM prompt."""
+    from app.services.aggregation import list_aggregations, record_error_event
+
+    record_error_event(
+        fake_redis,
+        {
+            "service": "s",
+            "endpoint": "/e",
+            "status_code": 500,
+            "error_type": "AuthError",
+            "error_message": "invalid token=sk-abcdefghijklmnopqrstuvwxyz123456",
+            "commit_hash": "c",
+        },
+    )
+    aggregations = list_aggregations(fake_redis)
+    assert "sk-abcdefghijklmnopqrstuvwxyz123456" not in aggregations[0]["message"]
+    assert "[REDACTED]" in aggregations[0]["message"]
 
 
 def test_middleware_logs_request_with_correlation_id(client, capture_logs):

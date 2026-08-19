@@ -1,8 +1,17 @@
 """DeepSeek chat client (Phase 11).
 
 A thin, timeout-guarded HTTP client for the DeepSeek chat completions API.
-All outbound calls have bounded timeouts; failures raise ``DeepSeekError``
-which the investigation service turns into a graceful degraded result.
+All outbound calls have bounded timeouts.
+
+Errors are raised as ``DeepSeekError`` with a ``transient`` flag:
+
+  - transient=True  -> the call may succeed if retried (timeout, 5xx,
+                       network error). The investigation task retries these
+                       with backoff.
+  - transient=False -> retrying will not help (auth failure, malformed
+                       response). The task fails immediately.
+
+Upstream response bodies are never propagated to callers or logs.
 """
 
 from __future__ import annotations
@@ -18,6 +27,11 @@ class DeepSeekError(Exception):
     """Raised when the DeepSeek API call or response parsing fails."""
 
     error_type = "DeepSeekError"
+
+    def __init__(self, message: str, *, transient: bool = False) -> None:
+        super().__init__(message)
+        self.message = message
+        self.transient = transient
 
 
 class DeepSeekClient:
@@ -64,18 +78,22 @@ class DeepSeekClient:
             )
             response.raise_for_status()
         except httpx.TimeoutException as exc:
-            raise DeepSeekError(f"DeepSeek request timed out: {exc}") from exc
+            raise DeepSeekError("DeepSeek request timed out", transient=True) from exc
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
-            detail = exc.response.text[:200] if exc.response else ""
-            raise DeepSeekError(f"DeepSeek API error {status}: {detail}") from exc
+            transient = 500 <= status < 600
+            raise DeepSeekError(
+                f"DeepSeek API returned HTTP {status}", transient=transient
+            ) from exc
         except httpx.HTTPError as exc:
-            raise DeepSeekError(f"DeepSeek request failed: {exc}") from exc
+            raise DeepSeekError("DeepSeek request failed (network error)", transient=True) from exc
 
         try:
             data = response.json()
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError, ValueError) as exc:
-            raise DeepSeekError(f"Unexpected DeepSeek response shape: {exc}") from exc
+            raise DeepSeekError(
+                "Unexpected DeepSeek response shape", transient=False
+            ) from exc
 
         return content

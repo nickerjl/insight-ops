@@ -101,13 +101,20 @@ def register_exception_handlers(app: FastAPI) -> None:
             "error_message": "request validation failed",
         }
         logger.warning("request validation error", extra=extra)
+
+        # Strip raw input values and ctx so client-submitted data (which can
+        # contain secrets or PII) is never echoed back or logged.
+        errors = [
+            {"loc": e.get("loc"), "type": e.get("type"), "msg": e.get("msg")}
+            for e in exc.errors()
+        ]
         return JSONResponse(
             status_code=422,
             content={
                 "error": {
                     "type": "RequestValidationError",
                     "message": "Request validation failed",
-                    "details": exc.errors(),
+                    "details": errors,
                 }
             },
         )
