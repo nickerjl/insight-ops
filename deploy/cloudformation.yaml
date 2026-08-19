@@ -175,8 +175,7 @@ Resources:
           dnf install -y docker
           systemctl enable --now docker
           usermod -aG docker ec2-user
-          DOCKER_COMPOSE_VERSION="v2.29.1"
-          curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" \
+          curl -L "https://github.com/docker/compose/releases/download/v2.29.1/docker-compose-linux-$(uname -m)" \
             -o /usr/local/lib/docker/cli-plugins/docker-compose
           chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
           mkdir -p /opt/insight-ops
