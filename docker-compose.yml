@@ -51,6 +51,10 @@ services:
     image: insight-ops-backend:dev
     command: ["dramatiq", "app.tasks"]
     restart: unless-stopped
+    # The Dockerfile's HTTP healthcheck only applies to the API; the worker
+    # does not serve HTTP, so its healthcheck is disabled.
+    healthcheck:
+      disable: true
     environment:
       APP_ENV: dev
       COMMIT_HASH: dev
@@ -68,6 +72,7 @@ services:
     build:
       context: ./frontend
       target: development
+    image: insight-ops-frontend:dev
     restart: unless-stopped
     environment:
       API_PROXY_TARGET: http://api:8000

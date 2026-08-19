@@ -10,12 +10,12 @@ from __future__ import annotations
 import dramatiq
 from dramatiq.broker import default_middleware
 from dramatiq.brokers.redis import RedisBroker
+from dramatiq.brokers.stub import StubBroker
 from dramatiq.middleware import CurrentMessage
 from dramatiq.middleware.prometheus import Prometheus
 from dramatiq.middleware.retries import Retries
 
 from app.core.config import get_settings
-
 
 def build_redis_broker() -> RedisBroker:
     settings = get_settings()
@@ -42,8 +42,14 @@ def build_redis_broker() -> RedisBroker:
 
 
 def configure_broker() -> None:
-    """Install the Redis broker unless one is already installed (tests)."""
-    if dramatiq.broker is not None:
+    """Install the Redis broker unless a test broker is already installed.
+
+    Uses ``get_broker()`` (Dramatiq's global broker), NOT the
+    ``dramatiq.broker`` attribute — the latter is the ``dramatiq.broker``
+    submodule and is reset on every submodule import.
+    """
+    current = dramatiq.get_broker()
+    if isinstance(current, StubBroker):
         return
     dramatiq.set_broker(build_redis_broker())
 

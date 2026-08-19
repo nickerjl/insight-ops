@@ -10,7 +10,9 @@
 FROM node:18-alpine AS build
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+# npm install (not ci) so the image builds without a committed lockfile;
+# commit package-lock.json after the first build for reproducible builds.
+RUN npm install
 COPY . .
 RUN npm run build
 
