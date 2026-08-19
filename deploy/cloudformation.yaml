@@ -37,15 +37,18 @@ Parameters:
     Type: String
     Default: 127.0.0.1/32
     Description: >-
-      CIDR allowed to SSH. FAIL-CLOSED default (no access); set to the
-      GitHub Actions runner egress IP, e.g. 1.2.3.4/32.
+      CIDR allowed to SSH (port 22). GitHub Actions runners have dynamic
+      IPs, so the CI deploy job needs 0.0.0.0/0 here; authentication is the
+      EC2 key pair (password login disabled by default on Amazon Linux).
+      FAIL-CLOSED default 127.0.0.1/32 = no remote access.
   CloudFrontAccessIp:
     Type: String
     Default: 127.0.0.1/32
     Description: >-
-      CIDR allowed to reach the API on :8000 (plain HTTP, no auth). FAIL-CLOSED
-      default; set to your client/runner CIDR. Production would front the API
-      with ALB/CloudFront + TLS and add auth/rate limiting instead.
+      CIDR allowed to reach the API on :8000 (plain HTTP, no auth). Needed by
+      the browser dashboard (AJAX) and the GitHub Actions smoke tests, both of
+      which use dynamic IPs - use 0.0.0.0/0 for the demo. Production would
+      front the API with an ALB/CloudFront + TLS and add auth/rate limiting.
 
 Mappings:
   # PLACEHOLDER AMI IDs — replace with real Amazon Linux 2023 AMI IDs for your
