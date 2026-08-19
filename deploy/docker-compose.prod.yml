@@ -38,7 +38,6 @@ services:
       options:
         awslogs-group: /insight-ops/prod
         awslogs-region: ${AWS_REGION:-eu-west-1}
-        awslogs-stream-prefix: api
 
   worker:
     image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
@@ -54,7 +53,6 @@ services:
       options:
         awslogs-group: /insight-ops/prod
         awslogs-region: ${AWS_REGION:-eu-west-1}
-        awslogs-stream-prefix: worker
 
 volumes:
   redis-data:
