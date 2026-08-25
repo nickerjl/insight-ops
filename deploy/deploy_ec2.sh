@@ -32,7 +32,9 @@ if [[ -z "${SSH_PRIVATE_KEY:-}" ]]; then
 fi
 export SSH_AUTH_SOCK_DIR="$(mktemp -d)"
 trap 'rm -rf "$SSH_AUTH_SOCK_DIR"' EXIT
-eval "$(ssh-agent -s -a "$SSH_AUTH_SOCK_DIR/agent.sock" >/dev/null)"
+# Start a dedicated agent and export its socket via eval; stderr is
+# suppressed but STDOUT (the `export SSH_AUTH_SOCK` lines) must reach eval.
+eval "$(ssh-agent -s -a "$SSH_AUTH_SOCK_DIR/agent.sock" 2>/dev/null)"
 printf '%s\n' "$SSH_PRIVATE_KEY" | ssh-add - >/dev/null
 
 SSH_USER="${SSH_USER:-ec2-user}"
