@@ -1,5 +1,7 @@
 # InsightOps
 
+[![CI/CD](https://github.com/nickerjl/insight-ops/actions/workflows/ci.yml/badge.svg)](https://github.com/nickerjl/insight-ops/actions/workflows/ci.yml)
+
 InsightOps is a production-style, full-stack observability and AI-assisted debugging platform.
 
 The project demonstrates how to build, test, deploy, operate, and troubleshoot a modern Python backend end to end using AWS, Docker, GitHub Actions, structured logging, asynchronous processing, semantic retrieval, and LLM-assisted investigation.
