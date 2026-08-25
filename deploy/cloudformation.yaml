@@ -188,6 +188,15 @@ Resources:
         - { Key: Name, Value: insight-ops-ec2 }
         - { Key: Environment, Value: !Ref Environment }
 
+  # Elastic IP so the public IP (and thus the CloudFront API origin + CI
+  # secrets) stays stable across instance stop/start. Free while attached.
+  ApiElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Ec2Instance
+      Tags: [{ Key: Name, Value: insight-ops-api-eip }]
+
   # --- CloudWatch ---------------------------------------------------------
   AppLogGroup:
     Type: AWS::Logs::LogGroup
@@ -237,12 +246,19 @@ Resources:
       DistributionConfig:
         Enabled: true
         DefaultRootObject: index.html
-        Comment: InsightOps frontend
+        Comment: InsightOps frontend + API (path-based)
         Origins:
           - Id: S3Frontend
             DomainName: !GetAtt FrontendBucket.RegionalDomainName
             OriginAccessControlId: !Ref CloudFrontOriginAccessControl
             S3OriginConfig: {}
+          # API origin: CloudFront terminates TLS for the browser, then talks
+          # plain HTTP to the EC2 instance (port 8000) over the private path.
+          - Id: ApiOrigin
+            DomainName: !GetAtt Ec2Instance.PublicDnsName
+            CustomOriginConfig:
+              HTTPPort: 8000
+              OriginProtocolPolicy: http-only
         DefaultCacheBehavior:
           TargetOriginId: S3Frontend
           ViewerProtocolPolicy: redirect-to-https
@@ -252,19 +268,67 @@ Resources:
           ForwardedValues:
             QueryString: false
             Cookies: { Forward: none }
-        CustomErrorResponses:
-          - ErrorCode: 403
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-          - ErrorCode: 404
-            ResponseCode: 200
-            ResponsePagePath: /index.html
+        # API routes are served through the same distribution so the browser
+        # never sees mixed content (everything is HTTPS same-origin).
+        # Cache TTLs are 0 so aggregations/tasks are never stale.
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachedMethods: [GET, HEAD]
+            ForwardedValues:
+              QueryString: true
+              Cookies: { Forward: all }
+            MinTTL: 0
+            DefaultTTL: 0
+            MaxTTL: 0
+          - PathPattern: /health
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            ForwardedValues:
+              QueryString: false
+              Cookies: { Forward: none }
+            MinTTL: 0
+            DefaultTTL: 0
+            MaxTTL: 0
+          - PathPattern: /ready
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            ForwardedValues:
+              QueryString: false
+              Cookies: { Forward: none }
+            MinTTL: 0
+            DefaultTTL: 0
+            MaxTTL: 0
+          - PathPattern: /demo/*
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            ForwardedValues:
+              QueryString: false
+              Cookies: { Forward: none }
+            MinTTL: 0
+            DefaultTTL: 0
+            MaxTTL: 0
         PriceClass: PriceClass_100
 
 Outputs:
   Ec2PublicIp:
     Description: EC2 public IP (set EC2_HOST CI variable to this)
-    Value: !GetAtt Ec2Instance.PublicIp
+    Value: !Ref ApiElasticIp
+  ApiElasticIp:
+    Description: Stable Elastic IP attached to the EC2 instance
+    Value: !Ref ApiElasticIp
   Ec2PublicDns:
     Description: EC2 public DNS name
     Value: !GetAtt Ec2Instance.PublicDnsName
