@@ -44,3 +44,6 @@ cloudformation-outputs/
 
 # GitHub deploy key (local only, move to ~/.ssh)
 .ssh-keys/
+
+# Local AWS CLI venv (not part of the project)
+.awscli/
