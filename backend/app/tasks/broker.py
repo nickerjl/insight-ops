@@ -16,6 +16,7 @@ from dramatiq.middleware.prometheus import Prometheus
 from dramatiq.middleware.retries import Retries
 
 from app.core.config import get_settings
+from app.tasks.lifecycle import TaskLifecycleMiddleware
 
 def build_redis_broker() -> RedisBroker:
     settings = get_settings()
@@ -31,6 +32,7 @@ def build_redis_broker() -> RedisBroker:
         if m is not Prometheus and m is not Retries
     ]
     middleware.append(CurrentMessage())
+    middleware.append(TaskLifecycleMiddleware())
     middleware.append(
         Retries(
             max_retries=settings.dramatiq_max_retries,

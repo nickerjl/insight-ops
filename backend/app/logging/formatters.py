@@ -107,6 +107,11 @@ _EXTRA_FIELDS = (
     "job_id",
     "retry_count",
     "service",
+    # Task-lifecycle fields (app/tasks/lifecycle.py)
+    "actor_name",
+    "queue",
+    "duration_s",
+    "result",
 )
 
 
