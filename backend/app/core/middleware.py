@@ -12,6 +12,7 @@ from starlette.requests import Request
 
 from app.core.config import get_settings
 from app.logging.context import reset_request_id, set_request_id
+from app.services.redis_client import get_redis
 
 logger = logging.getLogger("app.request")
 
@@ -72,5 +73,26 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             logger.warning("request completed with client error", extra=extra)
         else:
             logger.error("request completed with server error", extra=extra)
+
+        # Push the same envelope to a Redis ring buffer so the dashboard can
+        # show API logs without hitting CloudWatch (persistent store). Clean
+        # up indentation: this runs for EVERY request, not only 5xx.
+        level = "INFO" if response.status_code < 400 else "ERROR"
+        try:
+            from app.services.log_store import push_api_log
+
+            push_api_log(
+                get_redis(),
+                {
+                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "level": level,
+                    "logger": "app.request",
+                    "message": "request completed",
+                    **extra,
+                },
+            )
+        except Exception:
+            # Ring-buffer write must never break the request.
+            logger.warning("failed to buffer api log", exc_info=True)
 
         return response

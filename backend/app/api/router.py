@@ -23,8 +23,10 @@ def mount_feature_routers() -> None:
     """Register feature routers under /api (best-effort, extended per phase)."""
     try:
         from app.api.errors import router as errors_router
+        from app.api.logs import router as logs_router
 
         api_router.include_router(errors_router)
+        api_router.include_router(logs_router)
     except ImportError:  # pragma: no cover - not yet implemented
         pass
 

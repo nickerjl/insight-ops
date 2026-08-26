@@ -25,6 +25,9 @@ export const api = {
   ready: () => request("/ready"),
   recentErrors: (limit = 50) => request(`/api/errors/recent?limit=${limit}`),
   aggregations: (limit = 100) => request(`/api/errors/aggregations?limit=${limit}`),
+  recentLogs: (source = "api", limit = 100) =>
+    request(`/api/logs/recent?source=${source}&limit=${limit}`),
+  triggerDemoError: (kind) => request(`/demo/error/${kind}`),
   dispatchDemoTask: (kind) =>
     request("/api/tasks/demo", { method: "POST", body: JSON.stringify({ kind }) }),
   taskStatus: (taskId) => request(`/api/tasks/${taskId}`),

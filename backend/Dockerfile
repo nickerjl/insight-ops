@@ -28,7 +28,7 @@ USER appuser
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=5 \
+HEALTHCHECK --interval=60s --timeout=5s --start-period=15s --retries=5 \
     CMD curl -fsS http://localhost:8000/health || exit 1
 
 # Default command: FastAPI. Overridden to `dramatiq app.tasks` for the worker.

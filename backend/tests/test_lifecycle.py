@@ -59,15 +59,15 @@ def _setup_capture(monkeypatch):
     return teardown
 
 
-def test_success_logs_info(monkeypatch):
+def test_success_logs_info(monkeypatch, fake_redis):
     _capture["records"] = []
     teardown = _setup_capture(monkeypatch)
     try:
         mw = TaskLifecycleMiddleware()
         mw.after_process_message(_Broker(), _FakeMessage(retries=0), result="ok")
-        assert len(_capture["records"]) == 1
-        rec = _capture["records"][0]
-        assert rec["message"] == "task success"
+        successes = [r for r in _capture["records"] if r["message"] == "task success"]
+        assert len(successes) == 1
+        rec = successes[0]
         assert rec["level"] == "INFO"
         assert rec["task_id"] == "m1"
         assert rec["actor_name"] == "demo_task"
@@ -77,7 +77,7 @@ def test_success_logs_info(monkeypatch):
         teardown()
 
 
-def test_retry_logs_error_with_counter(monkeypatch):
+def test_retry_logs_error_with_counter(monkeypatch, fake_redis):
     _capture["records"] = []
     teardown = _setup_capture(monkeypatch)
     try:
@@ -87,9 +87,9 @@ def test_retry_logs_error_with_counter(monkeypatch):
             _FakeMessage(retries=1),
             exception=RuntimeError("boom"),
         )
-        assert len(_capture["records"]) == 1
-        rec = _capture["records"][0]
-        assert rec["message"] == "task failure"
+        failures = [r for r in _capture["records"] if r["message"] == "task failure"]
+        assert len(failures) == 1
+        rec = failures[0]
         assert rec["level"] == "ERROR"
         assert rec["retry_count"] == 1
         assert rec["error_type"] == "RuntimeError"
@@ -115,9 +115,9 @@ def test_final_failure_logs_dead_lettered_and_aggregates(monkeypatch, fake_redis
             _FakeMessage(retries=3),  # == dramatiq_max_retries -> terminal
             exception=RuntimeError("boom"),
         )
-        assert len(_capture["records"]) == 1
-        rec = _capture["records"][0]
-        assert rec["message"] == "task failure (final, dead-lettered)"
+        final = [r for r in _capture["records"] if "final" in r.get("message", "")]
+        assert len(final) == 1
+        assert final[0]["message"] == "task failure (final, dead-lettered)"
         # Aggregation alert raised for the final failure.
         assert calls == [("demo_task", "RuntimeError", "task:demo_task")]
     finally:

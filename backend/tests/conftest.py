@@ -71,9 +71,12 @@ def fake_redis(monkeypatch):
         "app.api.errors",
         "app.api.health",
         "app.api.investigations",
+        "app.api.logs",
         "app.tasks.demo_tasks",
         "app.tasks.aggregate_errors",
         "app.tasks.investigate",
+        "app.tasks.lifecycle",
+        "app.core.middleware",
         "app.services.redis_client",
     ):
         monkeypatch.setattr(module + ".get_redis", lambda: fake, raising=False)

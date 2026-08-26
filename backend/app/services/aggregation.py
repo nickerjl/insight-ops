@@ -33,7 +33,22 @@ _EVENT_FIELDS = (
     "commit_hash",
     "request_id",
     "fingerprint",
+    "display_name",
 )
+
+
+def _display_name(event: dict) -> str:
+    """Human-readable label for aggregation rows.
+
+    API      -> endpoint_name (e.g. demo_error_500) falling back to endpoint
+    Dramatiq -> the actor name; lifecycle events pass it via ``display_name``.
+    """
+    return str(
+        event.get("display_name")
+        or event.get("endpoint_name")
+        or event.get("endpoint")
+        or event.get("error_type", "UnknownError")
+    )
 
 
 def record_error_event(redis, event: dict) -> dict:
@@ -57,6 +72,7 @@ def record_error_event(redis, event: dict) -> dict:
     event["fingerprint"] = fingerprint
     event.setdefault("service", settings.service_name)
     event.setdefault("commit_hash", settings.commit_hash)
+    event["display_name"] = _display_name(event)
 
     now = time.time()
     payload = {field: event.get(field) for field in _EVENT_FIELDS}
@@ -81,6 +97,7 @@ def record_error_event(redis, event: dict) -> dict:
             "service": event.get("service", settings.service_name),
             "commit_hash": event.get("commit_hash", settings.commit_hash),
             "message": message,
+            "display_name": event["display_name"],
             "last_seen": now,
         },
     )
@@ -91,8 +108,23 @@ def record_error_event(redis, event: dict) -> dict:
     return payload
 
 
+def _as_float(value) -> float:
+    """Coerce a Redis hash field to float; tolerate empty/garbage values."""
+    try:
+        return float(value) if value not in (None, "") else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def list_aggregations(redis, limit: Optional[int] = None) -> list[dict]:
-    """Return all fingerprint aggregations, most recently seen first."""
+    """Return all fingerprint aggregations, most recently seen first.
+
+    Each item carries the aggregation fields plus a ``latest_event`` snapshot
+    (the most recent raw occurrence for that fingerprint) so the dashboard can
+    expand a row to show the full latest log. This is additive — the fields
+    the investigation service reads (error_type/endpoint/message/count/...) are
+    unchanged, so expanding does NOT affect the LLM investigation.
+    """
     settings = get_settings()
     items = []
     for key in redis.scan_iter(match=f"{AGGREGATION_PREFIX}*"):
@@ -102,10 +134,20 @@ def list_aggregations(redis, limit: Optional[int] = None) -> list[dict]:
         data.setdefault("count", "0")
         data.setdefault("first_seen", "")
         data.setdefault("last_seen", "")
+        data["display_name"] = data.get("display_name")
         items.append(data)
-    items.sort(key=lambda item: float(item.get("last_seen", 0)), reverse=True)
+    items.sort(key=lambda item: _as_float(item.get("last_seen")), reverse=True)
     if limit is not None:
         items = items[:limit]
+
+    # Attach the latest raw event per fingerprint (newest-events ring buffer).
+    by_fp: dict[str, dict] = {}
+    for event in list_recent_events(redis, limit=MAX_RECENT_EVENTS):
+        fp = event.get("fingerprint")
+        if fp and fp not in by_fp:
+            by_fp[fp] = event
+    for item in items:
+        item["latest_event"] = by_fp.get(item.get("fingerprint"))
     return items
 
 

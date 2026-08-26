@@ -21,8 +21,8 @@ uniform success/failure/retry logging without per-actor decorators.
 
 from __future__ import annotations
 
+import logging
 import time
-from typing import Any, Optional
 
 import dramatiq
 from dramatiq import Middleware
@@ -34,7 +34,7 @@ from app.services.redis_client import get_redis
 # `app.tasks.aggregate_errors.enqueue_error_aggregation` is imported lazily to
 # avoid a circular import (this module is imported by app.tasks.broker).
 
-logger = __import__("logging").getLogger("app.tasks.lifecycle")
+logger = logging.getLogger("app.tasks.lifecycle")
 
 # Actors for which we suppress noisy success logs (no-op internal machinery).
 _SILENT_SUCCESS_ACTORS: set[str] = set()
@@ -74,6 +74,7 @@ def _enqueue_error_aggregation(actor: str, exc: Exception, endpoint: str) -> Non
             "error_message": redact_text(str(exc)) or type(exc).__name__,
             "commit_hash": get_settings().commit_hash,
             "request_id": None,
+            "display_name": actor,
         }
         enqueue_error_aggregation(event)
     except Exception:  # pragma: no cover - never break task completion
@@ -92,7 +93,6 @@ class TaskLifecycleMiddleware(Middleware):
     """
 
     def after_process_message(self, broker, message, *, result=None, exception=None):
-        settings = get_settings()
         actor = _actor_name(message)
         retry_count = int(message.options.get("retries", 0) or 0)
         elapsed_ms = _decode_body(message).get("_lifecycle_started_ms")
@@ -112,20 +112,30 @@ class TaskLifecycleMiddleware(Middleware):
         if exception is None:
             if actor in _SILENT_SUCCESS_ACTORS:
                 return
-            logger.info("task success", extra={**common, "result": str(result) if result is not None else None})
+            record = {**common, "result": str(result) if result is not None else None}
+            logger.info("task success", extra=record)
+            _buffer_task_log(record)
             return
 
         # Failure path: log it, and on the FINAL failure raise an aggregation alert.
         terminal = retry_count >= _settings_retries()
         message_kind = "task failure" if not terminal else "task failure (final, dead-lettered)"
-        logger.error(
-            message_kind,
-            extra={
-                **common,
-                "error_type": type(exception).__name__,
-                "error_message": redact_text(str(exception)) or type(exception).__name__,
-            },
-            exc_info=exception,
-        )
+        record = {
+            **common,
+            "error_type": type(exception).__name__,
+            "error_message": redact_text(str(exception)) or type(exception).__name__,
+        }
+        logger.error(message_kind, extra=record, exc_info=exception)
+        _buffer_task_log(record)
         if terminal:
             _enqueue_error_aggregation(actor, exception, endpoint=f"task:{actor}")
+
+
+def _buffer_task_log(record: dict) -> None:
+    """Write a task lifecycle record to the Redis ring buffer (best-effort)."""
+    try:
+        from app.services.log_store import push_task_log
+
+        push_task_log(get_redis(), {"timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **record})
+    except Exception:  # pragma: no cover - never break task completion
+        logger.warning("failed to buffer task log", exc_info=True)

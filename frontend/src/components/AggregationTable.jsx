@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 function formatTime(epoch) {
   if (!epoch) return "—";
   try {
@@ -8,6 +10,8 @@ function formatTime(epoch) {
 }
 
 export default function AggregationTable({ aggregations }) {
+  const [expandedFp, setExpandedFp] = useState(null);
+
   return (
     <div className="card">
       <h2>Error Aggregations</h2>
@@ -19,8 +23,7 @@ export default function AggregationTable({ aggregations }) {
         <table className="table">
           <thead>
             <tr>
-              <th>Error type</th>
-              <th>Endpoint</th>
+              <th>Display Name</th>
               <th>Count</th>
               <th>First seen</th>
               <th>Last seen</th>
@@ -28,25 +31,68 @@ export default function AggregationTable({ aggregations }) {
             </tr>
           </thead>
           <tbody>
-            {aggregations.map((agg) => (
-              <tr key={agg.fingerprint}>
-                <td>{agg.error_type}</td>
-                <td>
-                  <code>{agg.endpoint}</code>
-                </td>
-                <td>
-                  <strong>{agg.count}</strong>
-                </td>
-                <td>{formatTime(agg.first_seen)}</td>
-                <td>{formatTime(agg.last_seen)}</td>
-                <td>
-                  <code className="mono-small">{agg.commit_hash}</code>
-                </td>
-              </tr>
-            ))}
+            {aggregations.map((agg) => {
+              const fp = agg.fingerprint;
+              const expanded = expandedFp === fp;
+              return (
+                <AggRow
+                  key={fp}
+                  agg={agg}
+                  expanded={expanded}
+                  onToggle={() => setExpandedFp(expanded ? null : fp)}
+                />
+              );
+            })}
           </tbody>
         </table>
       )}
     </div>
+  );
+}
+
+function AggRow({ agg, expanded, onToggle }) {
+  return (
+    <>
+      <tr className="clickable" onClick={onToggle}>
+        <td>
+          {agg.display_name || agg.endpoint || agg.error_type}
+          {expanded ? " ▴" : " ▾"}
+        </td>
+        <td>
+          <strong>{agg.count}</strong>
+        </td>
+        <td>{formatTime(agg.first_seen)}</td>
+        <td>{formatTime(agg.last_seen)}</td>
+        <td>
+          <code className="mono-small">{agg.commit_hash || "—"}</code>
+        </td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={5}>
+            <div className="agg-detail">
+              <div className="agg-detail-grid">
+                <span>Error type</span>
+                <strong>{agg.error_type}</strong>
+                <span>Endpoint</span>
+                <strong>{agg.endpoint || "—"}</strong>
+                <span>Method</span>
+                <strong>{agg.method || "—"}</strong>
+                <span>Latest message</span>
+                <strong>{agg.message || "—"}</strong>
+                <span>Fingerprint</span>
+                <code className="mono-small">{agg.fingerprint}</code>
+              </div>
+              {(agg.latest_event || agg.message) && (
+                <details>
+                  <summary>Latest log (raw)</summary>
+                  <pre className="log-detail">{JSON.stringify(agg.latest_event || agg, null, 2)}</pre>
+                </details>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

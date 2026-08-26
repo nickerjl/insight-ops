@@ -250,3 +250,42 @@ code {
   color: var(--muted);
   font-size: 0.8rem;
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Expandable log rows */
+tr.clickable { cursor: pointer; }
+tr.clickable:hover { background: var(--surface-2); }
+.log-detail {
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.72rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--muted);
+  max-height: 260px;
+  overflow: auto;
+  margin: 4px 0;
+}
+
+/* Error trigger buttons */
+.error-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.button.danger {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: var(--error);
+  color: var(--error);
+}
+
+/* Aggregation expandable detail */
+.agg-detail { font-size: 0.85rem; }
+.agg-detail-grid {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 4px 12px;
+  margin: 6px 0;
+}
+.agg-detail-grid span { color: var(--muted); }
+.agg-detail summary { cursor: pointer; color: var(--muted); margin-top: 8px; }
