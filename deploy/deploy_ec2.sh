@@ -69,6 +69,10 @@ if [[ -z "$REGISTRY_PASSWORD" ]]; then
 fi
 
 echo "==> Deploying ${BACKEND_IMAGE}"
+# Clear any stale cached credential for this registry (e.g. an expired
+# GITHUB_TOKEN from a previous run) BEFORE logging in, so a fresh token is
+# always used.
+ssh "${SSH_OPTS[@]}" "${SSH_USER}@${EC2_HOST}" "docker logout ${REGISTRY} >/dev/null 2>&1 || true"
 printf '%s' "$REGISTRY_PASSWORD" | ssh "${SSH_OPTS[@]}" "${SSH_USER}@${EC2_HOST}" \
   "docker login ${REGISTRY} -u '${REGISTRY_USER}' --password-stdin"
 
