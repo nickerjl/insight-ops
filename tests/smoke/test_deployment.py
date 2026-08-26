@@ -63,7 +63,7 @@ def test_error_is_aggregated(base_url, http, wait_for_aggregation):
 def test_investigation_can_be_created(base_url, http):
     response = http.post(
         f"{base_url}/api/investigations",
-        json={"query": "Why are payment errors increasing?"},
+        json={"query": "Which errors came from background (dramatiq) tasks?"},
         timeout=10,
     )
     assert response.status_code == 202, response.text

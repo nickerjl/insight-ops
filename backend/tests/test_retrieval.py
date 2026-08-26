@@ -65,7 +65,7 @@ def test_tokenize_drops_stopwords_and_short_tokens():
 
 def test_query_retrieves_relevant_aggregation(fake_redis):
     _seed(fake_redis)
-    items = retrieve_evidence(fake_redis, "Why are payment errors increasing?")
+    items = retrieve_evidence(fake_redis, "Which errors came from background (dramatiq) tasks?")
     assert items, "expected at least one evidence item"
 
     top = items[0]

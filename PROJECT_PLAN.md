@@ -766,7 +766,7 @@ Retrieve relevant operational evidence using natural-language queries.
 Input:
 
 ```text
-Why are payment errors increasing?
+Which errors came from background (dramatiq) tasks?
 ```
 
 Relevant evidence should include things such as:
@@ -857,7 +857,7 @@ Example request:
 
 ```json
 {
-  "query": "Why are payment errors increasing?"
+  "query": "Which errors came from background (dramatiq) tasks?"
 }
 ```
 

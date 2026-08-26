@@ -633,7 +633,7 @@ InsightOps adds a semantic investigation layer.
 
 A developer can ask:
 
-> Why are payment errors increasing?
+> Which errors came from background (dramatiq) tasks?
 
 or:
 
@@ -684,7 +684,7 @@ Example:
 ```text
 Developer:
 
-"Why are payment errors increasing?"
+"Which errors came from background (dramatiq) tasks?"
 ```
 
 InsightOps retrieves relevant evidence such as:

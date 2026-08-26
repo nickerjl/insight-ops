@@ -20,7 +20,7 @@ def _process_queued(broker, queue: str = "default") -> None:
 
 
 def test_create_investigation_returns_task_id(fake_redis, client):
-    response = client.post("/api/investigations", json={"query": "Why are payment errors increasing?"})
+    response = client.post("/api/investigations", json={"query": "Which errors came from background (dramatiq) tasks?"})
     assert response.status_code == 202
     body = response.json()
     assert body["investigation_id"]

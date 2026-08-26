@@ -7,7 +7,6 @@ const MAX_POLLS = 60;
 // Rotating placeholder examples — each is a realistic investigation question
 // the system can actually answer from the aggregated error evidence.
 const PLACEHOLDER_EXAMPLES = [
-  "e.g. Why are payment errors increasing?",
   "e.g. Which errors came from background (dramatiq) tasks?",
   "e.g. What is the most frequent error today?",
   "e.g. What is the root cause of the latest NameError?",

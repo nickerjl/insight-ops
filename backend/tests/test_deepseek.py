@@ -89,7 +89,7 @@ def test_deepseek_success_returns_structured_result(fake_redis, monkeypatch):
         return_value=httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
     )
 
-    outcome = run_investigation("Why are payment errors increasing?")
+    outcome = run_investigation("Which errors came from background (dramatiq) tasks?")
 
     assert outcome["status"] == "completed"
     result = outcome["result"]
