@@ -24,6 +24,7 @@ export default function AggregationTable({ aggregations }) {
           <thead>
             <tr>
               <th>Display Name</th>
+              <th>Source</th>
               <th>Count</th>
               <th>First seen</th>
               <th>Last seen</th>
@@ -59,17 +60,22 @@ function AggRow({ agg, expanded, onToggle }) {
           {expanded ? " ▴" : " ▾"}
         </td>
         <td>
+          <span className={`pill ${agg.source === "task" ? "warn" : "ok"}`}>
+            {agg.source || "api"}
+          </span>
+        </td>
+        <td>
           <strong>{agg.count}</strong>
         </td>
         <td>{formatTime(agg.first_seen)}</td>
         <td>{formatTime(agg.last_seen)}</td>
         <td>
-          <code className="mono-small">{agg.commit_hash || "—"}</code>
+          <code className="mono-small">{agg.commit_hash ? agg.commit_hash.slice(0, 10) : "—"}</code>
         </td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={5}>
+          <td colSpan={6}>
             <div className="agg-detail">
               <div className="agg-detail-grid">
                 <span>Error type</span>

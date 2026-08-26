@@ -122,3 +122,23 @@ def test_final_failure_logs_dead_lettered_and_aggregates(monkeypatch, fake_redis
         assert calls == [("demo_task", "RuntimeError", "task:demo_task")]
     finally:
         teardown()
+
+
+def test_task_failure_record_contains_traceback(monkeypatch, fake_redis):
+    """The task-failure ring-buffer record must carry exception.traceback so
+    expanded Dramatiq rows show a stack trace (parity with API error logs)."""
+    from app.services.log_store import list_task_logs
+
+    mw = TaskLifecycleMiddleware()
+    try:
+        raise RuntimeError("boom")
+    except RuntimeError as exc:
+        exception = exc
+    mw.after_process_message(_Broker(), _FakeMessage(retries=1), exception=exception)
+    logs = list_task_logs(fake_redis)
+    assert logs
+    failure = logs[0]
+    assert failure["error_type"] == "RuntimeError"
+    assert failure["exception"]["type"] == "RuntimeError"
+    assert "Traceback" in failure["exception"]["traceback"]
+    assert "boom" in failure["exception"]["message"]

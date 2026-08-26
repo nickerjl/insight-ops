@@ -76,7 +76,6 @@ export default function App() {
           logs={apiLogs}
           columns={[
             { key: "timestamp", label: "Timestamp" },
-            { key: "source", label: "Source" },
             { key: "endpoint_name", label: "Endpoint" },
             { key: "status_code", label: "Status" },
             { key: "duration_ms", label: "Duration (ms)" },
@@ -87,7 +86,6 @@ export default function App() {
           logs={taskLogs}
           columns={[
             { key: "timestamp", label: "Timestamp" },
-            { key: "source", label: "Source" },
             { key: "actor_name", label: "Task" },
             { key: "duration_s", label: "Duration (s)" },
             { key: "retry_count", label: "Retries" },

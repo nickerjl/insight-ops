@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import time
+import traceback as traceback_mod
 
 import dramatiq
 from dramatiq import Middleware
@@ -125,6 +126,15 @@ class TaskLifecycleMiddleware(Middleware):
             **common,
             "error_type": type(exception).__name__,
             "error_message": redact_text(str(exception)) or type(exception).__name__,
+            # Include the traceback so expanded Dramatiq rows show the stack
+            # trace (mirroring the API error logs) for ease of debugging.
+            "exception": {
+                "type": type(exception).__name__,
+                "message": redact_text(str(exception)) or type(exception).__name__,
+                "traceback": "".join(
+                    traceback_mod.format_exception(type(exception), exception, exception.__traceback__)
+                ),
+            },
         }
         logger.error(message_kind, extra=record, exc_info=exception)
         _buffer_task_log(record)

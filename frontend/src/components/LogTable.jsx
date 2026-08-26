@@ -80,10 +80,11 @@ function FragmentRow({ columns, log, expanded, onToggle }) {
     <>
       <tr className="clickable" onClick={onToggle}>
         {columns.map((c) => {
-          const value = log[c.key];
+          const raw = log[c.key];
+          const value = formatValue(c.key, raw);
           return (
-            <td key={c.key} title={value === null || value === undefined ? "—" : String(value)}>
-              {value === null || value === undefined ? "—" : String(value)}
+            <td key={c.key} title={raw === null || raw === undefined ? "—" : String(raw)}>
+              {value}
             </td>
           );
         })}
@@ -97,6 +98,18 @@ function FragmentRow({ columns, log, expanded, onToggle }) {
       )}
     </>
   );
+}
+
+// Format the timestamp cell as a readable ISO-8601 string. The stored value
+// is already ISO-8601 (e.g. 2026-08-26T15:01:37Z); normalise it to include
+// milliseconds and a clean Z so the table reads consistently.
+function formatValue(key, raw) {
+  if (raw === null || raw === undefined) return "—";
+  if (key === "timestamp") {
+    const iso = String(raw).replace("T", " ").replace("Z", " UTC");
+    return iso;
+  }
+  return String(raw);
 }
 
 function ExpandedDetail({ log }) {
