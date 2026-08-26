@@ -88,7 +88,7 @@ export default function App() {
             { key: "timestamp", label: "Timestamp" },
             { key: "actor_name", label: "Task" },
             { key: "duration_s", label: "Duration (s)" },
-            { key: "retry_count", label: "Retries" },
+            { key: "status", label: "Status" },
           ]}
         />
       </section>

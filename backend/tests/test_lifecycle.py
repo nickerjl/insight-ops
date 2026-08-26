@@ -142,3 +142,34 @@ def test_task_failure_record_contains_traceback(monkeypatch, fake_redis):
     assert failure["exception"]["type"] == "RuntimeError"
     assert "Traceback" in failure["exception"]["traceback"]
     assert "boom" in failure["exception"]["message"]
+
+
+def test_duration_and_status_field(monkeypatch, fake_redis):
+    """duration_s must be non-null (computed via before_process_message start
+    time) and the record must carry a status (success|failed)."""
+    from app.services.log_store import list_task_logs
+
+    mw = TaskLifecycleMiddleware()
+    msg_success = _FakeMessage(retries=0)
+    mw.before_process_message(_Broker(), msg_success)
+    mw.after_process_message(_Broker(), msg_success, result="ok")
+
+    logs = list_task_logs(fake_redis)
+    success = logs[0]
+    assert success["status"] == "success"
+    assert success["duration_s"] is not None
+    assert success["duration_s"] >= 0
+
+    msg_fail = _FakeMessage(retries=1)
+    mw.before_process_message(_Broker(), msg_fail)
+    exc = None
+    try:
+        raise RuntimeError("boom")
+    except RuntimeError as e:
+        exc = e
+    mw.after_process_message(_Broker(), msg_fail, exception=exc)
+
+    logs2 = list_task_logs(fake_redis)
+    failure = logs2[0]
+    assert failure["status"] == "failed"
+    assert failure["duration_s"] is not None

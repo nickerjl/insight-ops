@@ -82,9 +82,16 @@ function FragmentRow({ columns, log, expanded, onToggle }) {
         {columns.map((c) => {
           const raw = log[c.key];
           const value = formatValue(c.key, raw);
+          const isStatus = c.key === "status";
           return (
             <td key={c.key} title={raw === null || raw === undefined ? "—" : String(raw)}>
-              {value}
+              {isStatus ? (
+                <span className={`pill ${raw === "success" ? "ok" : "error"}`}>
+                  {raw || "—"}
+                </span>
+              ) : (
+                value
+              )}
             </td>
           );
         })}

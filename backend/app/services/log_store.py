@@ -101,6 +101,7 @@ def _bounded_json(record: dict) -> str:
         "actor_name",
         "retry_count",
         "duration_s",
+        "status",
         "result",
         "error_type",
         "error_message",

@@ -40,6 +40,11 @@ logger = logging.getLogger("app.tasks.lifecycle")
 # Actors for which we suppress noisy success logs (no-op internal machinery).
 _SILENT_SUCCESS_ACTORS: set[str] = set()
 
+# Per-attempt start wall-clock times (message_id -> time.time()) so
+# `after_process_message` can compute duration_s. Only lives for the lifetime
+# of one in-flight message; bounded by the worker's concurrency.
+_START_TIMES: dict[str, float] = {}
+
 
 def _decode_body(message: dramatiq.Message) -> dict:
     """Best-effort decode of the message body (list of args) into a dict."""
@@ -106,13 +111,19 @@ class TaskLifecycleMiddleware(Middleware):
         celery (final)     == failure with retries == max -> aggregation alert
     """
 
+    def before_process_message(self, broker, message):
+        """Record the start wall-clock time so after_process_message can
+        compute duration_s (Dramatiq doesn't expose timing natively)."""
+        _START_TIMES[message.message_id] = time.time()
+
     def after_process_message(self, broker, message, *, result=None, exception=None):
         actor = _actor_name(message)
         retry_count = int(message.options.get("retries", 0) or 0)
-        elapsed_ms = _decode_body(message).get("_lifecycle_started_ms")
+
+        started = _START_TIMES.pop(message.message_id, None)
         duration_s = None
-        if elapsed_ms is not None:
-            duration_s = round((time.time() * 1000 - float(elapsed_ms)) / 1000, 3)
+        if started is not None:
+            duration_s = round(time.time() - started, 3)
 
         common = {
             "task_id": message.message_id,
@@ -126,7 +137,11 @@ class TaskLifecycleMiddleware(Middleware):
         if exception is None:
             if actor in _SILENT_SUCCESS_ACTORS:
                 return
-            record = {**common, "result": str(result) if result is not None else None}
+            record = {
+                **common,
+                "result": str(result) if result is not None else None,
+                "status": "success",
+            }
             logger.info("task success", extra=record)
             _buffer_task_log(record)
             return
@@ -138,6 +153,7 @@ class TaskLifecycleMiddleware(Middleware):
             **common,
             "error_type": type(exception).__name__,
             "error_message": redact_text(str(exception)) or type(exception).__name__,
+            "status": "failed",
             # Include the traceback so expanded Dramatiq rows show the stack
             # trace (mirroring the API error logs) for ease of debugging.
             "exception": {
