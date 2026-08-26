@@ -188,15 +188,6 @@ Resources:
         - { Key: Name, Value: insight-ops-ec2 }
         - { Key: Environment, Value: !Ref Environment }
 
-  # Elastic IP so the public IP (and thus the CloudFront API origin + CI
-  # secrets) stays stable across instance stop/start. Free while attached.
-  ApiElasticIp:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-      InstanceId: !Ref Ec2Instance
-      Tags: [{ Key: Name, Value: insight-ops-api-eip }]
-
   # --- CloudWatch ---------------------------------------------------------
   AppLogGroup:
     Type: AWS::Logs::LogGroup
@@ -254,8 +245,10 @@ Resources:
             S3OriginConfig: {}
           # API origin: CloudFront terminates TLS for the browser, then talks
           # plain HTTP to the EC2 instance (port 8000). The origin domain is
-          # the instance's public DNS — stable because the Elastic IP is
-          # attached to the instance in the same stack.
+          # the instance's public DNS, baked at deploy time.
+          # NOTE: if the instance's public IP changes (stop/start), update
+          # this origin domain + the EC2_HOST / DEPLOYMENT_URL CI secrets to
+          # the new DNS (see docs/DEPLOYMENT.md).
           - Id: ApiOrigin
             DomainName: !GetAtt Ec2Instance.PublicDnsName
             CustomOriginConfig:
@@ -327,10 +320,7 @@ Resources:
 Outputs:
   Ec2PublicIp:
     Description: EC2 public IP (set EC2_HOST CI variable to this)
-    Value: !Ref ApiElasticIp
-  ApiElasticIp:
-    Description: Stable Elastic IP attached to the EC2 instance
-    Value: !Ref ApiElasticIp
+    Value: !GetAtt Ec2Instance.PublicIp
   Ec2PublicDns:
     Description: EC2 public DNS name
     Value: !GetAtt Ec2Instance.PublicDnsName
