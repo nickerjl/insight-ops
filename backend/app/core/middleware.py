@@ -88,6 +88,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                     "level": level,
                     "logger": "app.request",
                     "message": "request completed",
+                    "source": "api",
                     **extra,
                 },
             )

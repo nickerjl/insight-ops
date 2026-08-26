@@ -75,6 +75,7 @@ def _enqueue_error_aggregation(actor: str, exc: Exception, endpoint: str) -> Non
             "commit_hash": get_settings().commit_hash,
             "request_id": None,
             "display_name": actor,
+            "source": "task",
         }
         enqueue_error_aggregation(event)
     except Exception:  # pragma: no cover - never break task completion
@@ -136,6 +137,13 @@ def _buffer_task_log(record: dict) -> None:
     try:
         from app.services.log_store import push_task_log
 
-        push_task_log(get_redis(), {"timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **record})
+        push_task_log(
+            get_redis(),
+            {
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "source": "task",
+                **record,
+            },
+        )
     except Exception:  # pragma: no cover - never break task completion
         logger.warning("failed to buffer task log", exc_info=True)

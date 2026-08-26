@@ -49,6 +49,7 @@ class EvidenceItem:
     last_seen: Optional[float]
     commit_hash: Optional[str]
     message: str
+    source: str = "api"  # "api" | "task" (which subsystem produced the error)
     score: float = 0.0
 
     def to_dict(self) -> dict:
@@ -63,6 +64,7 @@ class EvidenceItem:
             "last_seen": self.last_seen,
             "commit_hash": self.commit_hash,
             "message": self.message,
+            "source": self.source or "api",
             "score": round(self.score, 4),
         }
 
@@ -105,12 +107,19 @@ def _to_evidence_item(agg: dict) -> EvidenceItem:
         last_seen=_f("last_seen"),
         commit_hash=agg.get("commit_hash"),
         message=agg.get("message", ""),
+        source=agg.get("source", "api"),
     )
 
 
 def _score_item(item: EvidenceItem, query_tokens: list[str], now: float) -> EvidenceItem:
     haystack = " ".join(
-        [item.error_type, item.endpoint, item.message, item.commit_hash or ""]
+        [
+            item.error_type,
+            item.endpoint,
+            item.message,
+            item.commit_hash or "",
+            item.source or "api",
+        ]
     )
     keyword_score = _match(query_tokens, haystack)
 
@@ -156,6 +165,7 @@ def retrieve_evidence(redis, query: str) -> list[EvidenceItem]:
             last_seen=now,
             commit_hash=raw.get("commit_hash"),
             message=raw.get("error_message", ""),
+            source=raw.get("source", "api"),
         )
         event_item = _score_item(event_item, query_tokens, now)
         key = (event_item.fingerprint, event_item.message)

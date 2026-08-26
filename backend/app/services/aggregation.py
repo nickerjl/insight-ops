@@ -34,6 +34,7 @@ _EVENT_FIELDS = (
     "request_id",
     "fingerprint",
     "display_name",
+    "source",
 )
 
 
@@ -98,6 +99,7 @@ def record_error_event(redis, event: dict) -> dict:
             "commit_hash": event.get("commit_hash", settings.commit_hash),
             "message": message,
             "display_name": event["display_name"],
+            "source": event.get("source", "api"),
             "last_seen": now,
         },
     )

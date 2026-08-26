@@ -58,3 +58,29 @@ def test_recent_endpoint_dramatiq_source(fake_redis, client):
 
 def test_recent_endpoint_invalid_source_422(fake_redis, client):
     assert client.get("/api/logs/recent?source=bogus").status_code == 422
+
+
+def test_api_log_rings_preserve_source_field(fake_redis):
+    push_api_log(fake_redis, {"endpoint": "/api/x", "message": "req", "source": "api"})
+    logs = list_api_logs(fake_redis)
+    assert logs[0]["source"] == "api"
+
+
+def test_task_log_rings_preserve_source_field(fake_redis):
+    push_task_log(fake_redis, {"actor_name": "demo", "message": "task", "source": "task"})
+    logs = list_task_logs(fake_redis)
+    assert logs[0]["source"] == "task"
+
+
+def test_5xx_endpoint_produces_error_log_with_traceback(fake_redis, client):
+    # Trigger a PaymentProviderTimeout through the app; the handler re-pushes
+    # an ERROR api log carrying the exception/traceback.
+    client.get("/demo/error/payment-timeout")
+    logs = list_api_logs(fake_redis)
+    error_logs = [l for l in logs if l.get("message") == "request failed"]
+    assert error_logs, "expected a 'request failed' error log"
+    rec = error_logs[0]
+    assert rec["source"] == "api"
+    assert rec["error_type"] == "PaymentProviderTimeout"
+    assert rec["exception"]["type"] == "PaymentProviderTimeout"
+    assert "Traceback" in rec["exception"]["traceback"]

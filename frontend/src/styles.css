@@ -289,3 +289,22 @@ tr.clickable:hover { background: var(--surface-2); }
 }
 .agg-detail-grid span { color: var(--muted); }
 .agg-detail summary { cursor: pointer; color: var(--muted); margin-top: 8px; }
+
+/* Scrollable + paginated log tables */
+.table-scroll {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+.button.small { padding: 4px 10px; font-size: 0.8rem; }
+
+/* Expanded log detail with prominent traceback */
+.log-detail-wrap { font-size: 0.85rem; }
+.log-detail-wrap summary { cursor: pointer; color: var(--muted); margin-top: 6px; }

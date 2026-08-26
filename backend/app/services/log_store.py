@@ -33,6 +33,24 @@ def push_api_log(redis, record: dict) -> None:
     redis.expire(API_LOGS_KEY, settings.error_aggregation_ttl)
 
 
+def push_api_error_log(redis, record: dict, exception: Exception) -> None:
+    """Append an ERROR request log with exception/traceback detail.
+
+    Used by the exception handlers so expandable 5xx rows carry the full
+    debug info (type, message, traceback) that the middleware envelope omits.
+    """
+    import traceback as traceback_mod
+
+    record = dict(record)
+    record["level"] = "ERROR"
+    record["exception"] = {
+        "type": type(exception).__name__,
+        "message": str(exception),
+        "traceback": "".join(traceback_mod.format_exception(type(exception), exception, exception.__traceback__)),
+    }
+    push_api_log(redis, record)
+
+
 def push_task_log(redis, record: dict) -> None:
     """Append one task lifecycle record to the Dramatiq ring buffer."""
     settings = get_settings()
@@ -87,7 +105,21 @@ def _bounded_json(record: dict) -> str:
         "error_type",
         "error_message",
         "queue",
+        "source",
+        # Exception detail (type/message/traceback) is included so the
+        # dashboard can expand a 5xx row to the full debug info.
+        "exception",
     }
     payload = {k: record[k] for k in whitelist if k in record}
+    # Truncate the (potentially large) traceback but keep it readable.
+    _cap_exception_depth(payload)
     text = json.dumps(payload, default=str)
-    return text[:4000]
+    return text[:8000]
+
+
+def _cap_exception_depth(record: dict) -> None:
+    """Cap the exception.traceback length so the ring buffer stays small."""
+    exc = record.get("exception")
+    if isinstance(exc, dict) and isinstance(exc.get("traceback"), str):
+        tb = exc["traceback"]
+        exc["traceback"] = tb[:6000] + ("\n…" if len(tb) > 6000 else "")

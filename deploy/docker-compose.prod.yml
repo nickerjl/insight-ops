@@ -28,6 +28,11 @@ services:
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     env_file:
       - /opt/insight-ops/.env.prod
+    environment:
+      # `environment` overrides env_file; COMMIT_HASH is derived from the
+      # image tag (CI commit SHA) so the aggregation/dashboard shows the real
+      # deployed commit instead of a literal "ci".
+      COMMIT_HASH: ${COMMIT_HASH:-dev}
     ports:
       - "8000:8000"
     depends_on:
@@ -45,6 +50,8 @@ services:
     command: ["dramatiq", "app.tasks"]
     env_file:
       - /opt/insight-ops/.env.prod
+    environment:
+      COMMIT_HASH: ${COMMIT_HASH:-dev}
     depends_on:
       redis:
         condition: service_healthy

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api/client";
 import StatusCard from "./components/StatusCard";
-import ErrorPanel from "./components/ErrorPanel";
 import AggregationTable from "./components/AggregationTable";
 import InvestigationPanel from "./components/InvestigationPanel";
 import TaskDemo from "./components/TaskDemo";
@@ -11,7 +10,6 @@ import LogTable from "./components/LogTable";
 export default function App() {
   const [health, setHealth] = useState(null);
   const [ready, setReady] = useState(null);
-  const [recent, setRecent] = useState({ events: [], count: 0 });
   const [aggregations, setAggregations] = useState({ aggregations: [], count: 0 });
   const [apiLogs, setApiLogs] = useState([]);
   const [taskLogs, setTaskLogs] = useState([]);
@@ -22,18 +20,16 @@ export default function App() {
     let cancelled = false;
     async function load() {
       try {
-        const [h, r, recentData, aggData, apiLogsData, taskLogsData] = await Promise.all([
+        const [h, r, aggData, apiLogsData, taskLogsData] = await Promise.all([
           api.health(),
           api.ready(),
-          api.recentErrors(),
           api.aggregations(),
-          api.recentLogs("api", 100),
-          api.recentLogs("dramatiq", 100),
+          api.recentLogs("api", 200),
+          api.recentLogs("dramatiq", 200),
         ]);
         if (cancelled) return;
         setHealth(h);
         setReady(r);
-        setRecent(recentData);
         setAggregations(aggData);
         setApiLogs(apiLogsData.logs || []);
         setTaskLogs(taskLogsData.logs || []);
@@ -71,7 +67,7 @@ export default function App() {
 
       <section className="grid">
         <ErrorTrigger onDispatched={refresh} />
-        <ErrorPanel events={recent.events} />
+        <AggregationTable aggregations={aggregations.aggregations} />
       </section>
 
       <section className="grid">
@@ -80,6 +76,7 @@ export default function App() {
           logs={apiLogs}
           columns={[
             { key: "timestamp", label: "Timestamp" },
+            { key: "source", label: "Source" },
             { key: "endpoint_name", label: "Endpoint" },
             { key: "status_code", label: "Status" },
             { key: "duration_ms", label: "Duration (ms)" },
@@ -90,15 +87,12 @@ export default function App() {
           logs={taskLogs}
           columns={[
             { key: "timestamp", label: "Timestamp" },
+            { key: "source", label: "Source" },
             { key: "actor_name", label: "Task" },
             { key: "duration_s", label: "Duration (s)" },
             { key: "retry_count", label: "Retries" },
           ]}
         />
-      </section>
-
-      <section className="grid">
-        <AggregationTable aggregations={aggregations.aggregations} />
       </section>
 
       <InvestigationPanel />

@@ -76,12 +76,16 @@ ssh "${SSH_OPTS[@]}" "${SSH_USER}@${EC2_HOST}" "docker logout ${REGISTRY} >/dev/
 printf '%s' "$REGISTRY_PASSWORD" | ssh "${SSH_OPTS[@]}" "${SSH_USER}@${EC2_HOST}" \
   "docker login ${REGISTRY} -u '${REGISTRY_USER}' --password-stdin"
 
+# Derive the commit SHA from the image tag (the backend image is tagged with
+# the CI commit SHA in .github/workflows/ci.yml).
+COMMIT_HASH="${COMMIT_HASH:-${BACKEND_IMAGE##*:}}"
+
 ssh "${SSH_OPTS[@]}" "${SSH_USER}@${EC2_HOST}" \
   "set -euo pipefail; \
    cd ${REMOTE_DIR}; \
    BACKEND_IMAGE='${BACKEND_IMAGE}' AWS_REGION='${AWS_REGION:-eu-west-1}' \
      docker compose -f docker-compose.prod.yml -p insight-ops pull api worker; \
-   BACKEND_IMAGE='${BACKEND_IMAGE}' AWS_REGION='${AWS_REGION:-eu-west-1}' \
+   COMMIT_HASH='${COMMIT_HASH}' BACKEND_IMAGE='${BACKEND_IMAGE}' AWS_REGION='${AWS_REGION:-eu-west-1}' \
      docker compose -f docker-compose.prod.yml -p insight-ops up -d"
 
 # --- 4. Health check (bounded retries) ------------------------------------

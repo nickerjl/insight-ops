@@ -12,6 +12,7 @@ Sensitive values are never included in logs or responses.
 from __future__ import annotations
 
 import logging
+import time
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -61,7 +62,32 @@ def _error_event(request: Request, *, status_code: int, error_type: str, message
         "error_message": message,
         "commit_hash": settings.commit_hash,
         "request_id": getattr(request.state, "request_id", None),
+        "source": "api",
     }
+
+
+def _push_error_log(request: Request, extra: dict, exception: Exception) -> None:
+    """Push a 5xx API log WITH exception/traceback to the ring buffer.
+
+    The middleware's normal envelope omits the traceback (that only lives in
+    the CloudWatch log line); handlers re-push with ``exception`` so the
+    dashboard expand shows the full debug info for ease of debugging.
+    """
+    try:
+        from app.services.log_store import push_api_error_log
+        from app.services.redis_client import get_redis
+
+        record = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "level": "ERROR",
+            "logger": "app.error",
+            "message": "request failed",
+            "source": "api",
+            **extra,
+        }
+        push_api_error_log(get_redis(), record, exception)
+    except Exception:  # pragma: no cover - never break the error response
+        logger.warning("failed to buffer error log", exc_info=True)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -130,6 +156,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             "error_message": exc.message,
         }
         logger.error("application error", extra=extra, exc_info=(type(exc), exc, exc.__traceback__))
+        _push_error_log(request, extra, exc)
 
         _enqueue_aggregation(_error_event(request, status_code=status_code, error_type=exc.error_type, message=exc.message))
 
@@ -158,6 +185,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             "error_fingerprint": fp,
         }
         logger.error("unhandled exception", extra=extra, exc_info=exc)
+        _push_error_log(request, extra, exc)
 
         _enqueue_aggregation(
             _error_event(request, status_code=status_code, error_type=error_type, message=error_message)

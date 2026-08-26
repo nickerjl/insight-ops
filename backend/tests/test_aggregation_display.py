@@ -47,3 +47,20 @@ def test_latest_event_absent_when_no_recent(fake_redis):
     fake_redis.delete(f"{AGGREGATION_PREFIX}{'x' * 20}")
     # No real aggregation exists; ensure listing stays lenient.
     assert list_aggregations(fake_redis) == []
+
+
+def test_aggregation_carries_source_for_api(fake_redis):
+    record_error_event(fake_redis, {**BASE, "request_id": "r1"})
+    aggs = list_aggregations(fake_redis)
+    assert aggs[0]["source"] == "api"
+
+
+def test_aggregation_carries_source_for_task(fake_redis):
+    from app.services.aggregation import record_error_event as rec
+
+    rec(
+        fake_redis,
+        {**BASE, "request_id": "r1", "display_name": "task:demo_task", "source": "task"},
+    )
+    aggs = list_aggregations(fake_redis)
+    assert aggs[0]["source"] == "task"
