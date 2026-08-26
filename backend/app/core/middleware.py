@@ -37,6 +37,31 @@ def _endpoint_name(request: Request) -> str:
     return request.url.path
 
 
+async def _capture_request_body(request: Request) -> str | None:
+    """Read the request body (bounded + redacted) for logging.
+
+    Returns None for bodyless methods (GET/HEAD) so the log row isn't cluttered.
+    The body is cached on ``request._body`` by Starlette, so the actual handler
+    can still read it afterwards.
+    """
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return None
+    content_type = request.headers.get("content-type", "")
+    if "json" not in content_type and "form" not in content_type:
+        return None
+    try:
+        raw = await request.body()
+        if not raw:
+            return None
+        body_bytes = raw[:2000]
+        # Redact secret-like values before logging.
+        from app.logging.formatters import redact_text
+
+        return redact_text(body_bytes.decode("utf-8", errors="replace"))
+    except Exception:
+        return None
+
+
 class RequestContextMiddleware(BaseHTTPMiddleware):
     """Assign every request a request_id and expose it to application logs."""
 
@@ -45,6 +70,12 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request_id
         token = set_request_id(request_id)
         started = time.perf_counter()
+
+        # Capture the request body (bounded + redacted) WITHOUT breaking the
+        # endpoint: Starlette caches the read body on request._body so a second
+        # read by the handler returns the same bytes.
+        request_body = await _capture_request_body(request)
+
         try:
             response = await call_next(request)
         except Exception:
@@ -64,6 +95,8 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             "request_id": request_id,
             "duration_ms": duration_ms,
         }
+        if request_body is not None:
+            extra["request_body"] = request_body
 
         # Access-log line for every request that produced a response.
         # Exception handlers add a second, error-specific line with detail.

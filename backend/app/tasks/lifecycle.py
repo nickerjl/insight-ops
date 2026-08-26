@@ -56,6 +56,25 @@ def _decode_body(message: dramatiq.Message) -> dict:
     return raw if isinstance(raw, dict) else {}
 
 
+def _capture_args(message: dramatiq.Message) -> dict:
+    """Capture the task's positional args + kwargs (redacted + bounded) for
+    the log ring buffer, so the dashboard can inspect the task input on
+    expand."""
+    from app.logging.formatters import redact
+
+    captured: dict = {}
+    try:
+        args = tuple(getattr(message, "args", ()) or ())
+        if args:
+            captured["args"] = redact([str(a)[:500] for a in args])
+        kwargs = getattr(message, "kwargs", None) or {}
+        if kwargs:
+            captured["kwargs"] = redact({k: str(v)[:500] for k, v in kwargs.items()})
+    except Exception:  # pragma: no cover - defensive
+        return {}
+    return captured
+
+
 def _actor_name(message: dramatiq.Message) -> str:
     return getattr(message, "actor_name", "unknown") or "unknown"
 
@@ -132,6 +151,10 @@ class TaskLifecycleMiddleware(Middleware):
             "queue": message.queue_name,
             "duration_s": duration_s,
             "request_id": _decode_body(message).get("request_id"),
+            # Capture the task kwargs (redacted + bounded) so the dashboard can
+            # inspect what was enqueued when the row is expanded. Named
+            # task_args because "args" collides with logging.LogRecord.args.
+            "task_args": _capture_args(message),
         }
 
         if exception is None:

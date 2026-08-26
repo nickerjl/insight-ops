@@ -120,27 +120,44 @@ function formatValue(key, raw) {
 }
 
 function ExpandedDetail({ log }) {
-  // If this is a 5xx error log, surface the traceback prominently for ease
-  // of debugging (the reason we widened the ring buffer to carry it).
-  if (log[TRACE_FIELD]) {
-    return (
-      <div className="log-detail-wrap">
-        <div className="agg-detail-grid">
-          <span>Error type</span>
-          <strong>{log[TRACE_FIELD].type || "—"}</strong>
-          <span>Message</span>
-          <strong>{log[TRACE_FIELD].message || "—"}</strong>
-        </div>
+  return (
+    <div className="log-detail-wrap">
+      {/* API request payload (if present) */}
+      {log.request_body ? (
         <details open>
-          <summary>Traceback</summary>
-          <pre className="log-detail">{log[TRACE_FIELD].traceback || "—"}</pre>
+          <summary>Request payload</summary>
+          <pre className="log-detail">{log.request_body}</pre>
         </details>
-        <details>
-          <summary>Full log (JSON)</summary>
-          <pre className="log-detail">{JSON.stringify(log, null, 2)}</pre>
+      ) : null}
+
+      {/* Task input (kwargs/args) for Dramatiq logs */}
+      {log.task_args ? (
+        <details open>
+          <summary>Task input (args/kwargs)</summary>
+          <pre className="log-detail">{JSON.stringify(log.task_args, null, 2)}</pre>
         </details>
-      </div>
-    );
-  }
-  return <pre className="log-detail">{JSON.stringify(log, null, 2)}</pre>;
+      ) : null}
+
+      {/* If this is a 5xx error log, surface the traceback prominently. */}
+      {log[TRACE_FIELD] ? (
+        <div className="log-detail-wrap">
+          <div className="agg-detail-grid">
+            <span>Error type</span>
+            <strong>{log[TRACE_FIELD].type || "—"}</strong>
+            <span>Message</span>
+            <strong>{log[TRACE_FIELD].message || "—"}</strong>
+          </div>
+          <details open>
+            <summary>Traceback</summary>
+            <pre className="log-detail">{log[TRACE_FIELD].traceback || "—"}</pre>
+          </details>
+        </div>
+      ) : null}
+
+      <details>
+        <summary>Full log (JSON)</summary>
+        <pre className="log-detail">{JSON.stringify(log, null, 2)}</pre>
+      </details>
+    </div>
+  );
 }

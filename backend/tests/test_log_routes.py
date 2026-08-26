@@ -84,3 +84,25 @@ def test_5xx_endpoint_produces_error_log_with_traceback(fake_redis, client):
     assert rec["error_type"] == "PaymentProviderTimeout"
     assert rec["exception"]["type"] == "PaymentProviderTimeout"
     assert "Traceback" in rec["exception"]["traceback"]
+
+
+def test_api_log_includes_request_body(fake_redis, client):
+    """POST requests that hit the demo/api routes are logged with their
+    redacted request body so the dashboard can inspect the payload."""
+    client.post(
+        "/api/tasks/demo",
+        json={"kind": "success"},
+    )
+    logs = list_api_logs(fake_redis)
+    post_row = next((l for l in logs if l.get("method") == "POST"), None)
+    assert post_row is not None
+    assert "request_body" in post_row
+    assert "success" in post_row["request_body"]
+
+
+def test_get_requests_have_no_body(fake_redis, client):
+    client.get("/health")
+    logs = list_api_logs(fake_redis)
+    health = next((l for l in logs if l.get("endpoint") == "/health"), None)
+    assert health is not None
+    assert "request_body" not in health or health.get("request_body") is None

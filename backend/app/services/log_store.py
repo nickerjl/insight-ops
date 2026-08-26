@@ -107,6 +107,10 @@ def _bounded_json(record: dict) -> str:
         "error_message",
         "queue",
         "source",
+        "task_args",  # task input (kwargs/args) for Dramatiq logs
+        # API request payload (captured by the middleware, redacted + bounded)
+        # so the dashboard can inspect what was sent on expand.
+        "request_body",
         # Exception detail (type/message/traceback) is included so the
         # dashboard can expand a 5xx row to the full debug info.
         "exception",

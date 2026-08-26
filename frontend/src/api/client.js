@@ -20,6 +20,15 @@ async function request(path, options = {}) {
   return response.json();
 }
 
+// Trigger an error endpoint. The 5xx is the INTENDED outcome of the demo, so
+// unlike `request` it does not throw on the error status — it just resolves
+// with the status so the UI knows the error was generated.
+async function triggerError(path) {
+  const response = await fetch(`${BASE_URL}${path}`);
+  await response.text().catch(() => {});
+  return { status: response.status, ok: response.ok };
+}
+
 export const api = {
   health: () => request("/health"),
   ready: () => request("/ready"),
@@ -27,7 +36,7 @@ export const api = {
   aggregations: (limit = 100) => request(`/api/errors/aggregations?limit=${limit}`),
   recentLogs: (source = "api", limit = 100) =>
     request(`/api/logs/recent?source=${source}&limit=${limit}`),
-  triggerDemoError: (kind) => request(`/demo/error/${kind}`),
+  triggerDemoError: (kind) => triggerError(`/demo/error/${kind}`),
   dispatchDemoTask: (kind) =>
     request("/api/tasks/demo", { method: "POST", body: JSON.stringify({ kind }) }),
   taskStatus: (taskId) => request(`/api/tasks/${taskId}`),

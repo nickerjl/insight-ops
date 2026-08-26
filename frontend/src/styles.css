@@ -308,3 +308,15 @@ tr.clickable:hover { background: var(--surface-2); }
 /* Expanded log detail with prominent traceback */
 .log-detail-wrap { font-size: 0.85rem; }
 .log-detail-wrap summary { cursor: pointer; color: var(--muted); margin-top: 6px; }
+
+/* Trigger-Errors confirmation note — distinct from buttons so a user won't
+ * mistake the message for another trigger button. */
+.trigger-confirm {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px dashed var(--ok);
+  color: var(--ok);
+}

@@ -10,20 +10,17 @@ const BUTTONS = [
 ];
 
 export default function ErrorTrigger({ onDispatched }) {
-  const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
+  const [lastGenerated, setLastGenerated] = useState(null);
 
   async function trigger(kind) {
     setBusy(kind);
-    setError(null);
+    setLastGenerated(null);
     try {
-      await api.triggerDemoError(kind);
-    } catch (err) {
-      // Deliberately consume the request error: the server returned 500 as
-      // designed. The point is to generate a log/aggregation entry.
-      if (err?.message && !String(err.message).includes("500")) {
-        setError(err.message);
-      }
+      const res = await api.triggerDemoError(kind);
+      // Show a subtle confirmation that the error was generated (a 500 here is
+      // the intended outcome of the demo, not a failure).
+      setLastGenerated({ kind, status: res.status });
     } finally {
       setBusy(null);
       if (onDispatched) onDispatched();
@@ -41,14 +38,19 @@ export default function ErrorTrigger({ onDispatched }) {
           <button
             key={b.kind}
             className="button danger"
-            disabled={busy === b.kind}
+            disabled={busy !== null}
             onClick={() => trigger(b.kind)}
           >
             {busy === b.kind ? "Triggering…" : b.label}
           </button>
         ))}
       </div>
-      {error && <div className="banner error">{error}</div>}
+      {lastGenerated && (
+        <p className="trigger-confirm">
+          ✓ Generated {lastGenerated.kind} error — status {lastGenerated.status}. Refresh or
+          check the logs below.
+        </p>
+      )}
     </div>
   );
 }

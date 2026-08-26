@@ -20,11 +20,13 @@ from app.tasks.lifecycle import TaskLifecycleMiddleware
 
 
 class _FakeMessage:
-    def __init__(self, message_id="m1", actor_name="demo_task", retries=0, queue_name="default"):
+    def __init__(self, message_id="m1", actor_name="demo_task", retries=0, queue_name="default", kwargs=None):
         self.message_id = message_id
         self.actor_name = actor_name
         self.queue_name = queue_name
         self.options = {"retries": retries}
+        self.args = ()
+        self.kwargs = kwargs or {}
 
     def decode(self):
         return [{}]
@@ -173,3 +175,18 @@ def test_duration_and_status_field(monkeypatch, fake_redis):
     failure = logs2[0]
     assert failure["status"] == "failed"
     assert failure["duration_s"] is not None
+
+
+def test_task_log_captures_kwargs(monkeypatch, fake_redis):
+    """The task-lifecycle ring-buffer record must include the task kwargs so
+    the dashboard can inspect task input on expand."""
+    from app.services.log_store import list_task_logs
+
+    mw = TaskLifecycleMiddleware()
+    msg = _FakeMessage(retries=0, kwargs={"kind": "failure", "task_id": "abc123"})
+    mw.before_process_message(_Broker(), msg)
+    mw.after_process_message(_Broker(), msg, result="ok")
+
+    logs = list_task_logs(fake_redis)
+    row = logs[0]
+    assert row["task_args"] == {"kwargs": {"kind": "failure", "task_id": "abc123"}}
