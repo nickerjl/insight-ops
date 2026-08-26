@@ -59,5 +59,21 @@ def demo_task(kind: str, task_id: str) -> None:
             },
             exc_info=True,
         )
-        set_task_status(get_redis(), task_id, "failed", error=str(exc))
+        # Distinguish a transient failure (middleware will retry) from the
+        # final one (retries exhausted -> dead-lettered), so the API/UI can
+        # keep polling through the retry cycle.
+        terminal = retries >= _settings.dramatiq_max_retries
+        set_task_status(
+            get_redis(),
+            task_id,
+            "failed",
+            error=str(exc),
+            retries=retries,
+            terminal="true" if terminal else "false",
+        )
+        if terminal:
+            logger.error(
+                "demo task dead-lettered after retries exhausted",
+                extra={"task_id": task_id, "retry_count": retries, "kind": kind},
+            )
         raise

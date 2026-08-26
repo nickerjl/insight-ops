@@ -5,6 +5,7 @@ export default function TaskDemo({ onDispatched }) {
   const [kind, setKind] = useState("success");
   const [taskId, setTaskId] = useState(null);
   const [status, setStatus] = useState(null);
+  const [retryCount, setRetryCount] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -13,10 +14,10 @@ export default function TaskDemo({ onDispatched }) {
     setError(null);
     setStatus(null);
     setTaskId(null);
+    setRetryCount(null);
     try {
       const response = await api.dispatchDemoTask(kind);
       setTaskId(response.task_id);
-      setStatus(response.status);
       poll(response.task_id);
       onDispatched();
     } catch (err) {
@@ -25,13 +26,20 @@ export default function TaskDemo({ onDispatched }) {
     }
   }
 
+  // Poll until a SUCCESS or a TERMINAL failure (retries exhausted). A
+  // non-terminal "failed" just means the current attempt threw and the
+  // middleware is about to retry with backoff — keep polling to show it.
   async function poll(id, attempts = 0) {
     try {
       const data = await api.taskStatus(id);
       setStatus(data.status);
-      if (data.status !== "completed" && data.status !== "failed" && attempts < 40) {
-        setTimeout(() => poll(id, attempts + 1), 1500);
-      } else if (attempts >= 40) {
+      setRetryCount(data.retries ?? null);
+      const done =
+        data.status === "completed" ||
+        (data.status === "failed" && data.terminal === "true");
+      if (!done && attempts < 40) {
+        setTimeout(() => poll(id, attempts + 1), 1000);
+      } else if (!done && attempts >= 40) {
         setError("Timed out waiting for the task to finish.");
       }
       setBusy(false);
@@ -57,12 +65,33 @@ export default function TaskDemo({ onDispatched }) {
           {busy ? "Dispatching…" : "Dispatch"}
         </button>
       </div>
-      {error && <div className="banner error">{error}</div>}
+
       {taskId && (
-        <p className="muted">
-          Task <code className="mono-small">{taskId}</code> — status: {status}
-        </p>
+        <div className="task-result">
+          <p className={status === "failed" ? "banner error" : "muted"}>
+            Task <code className="mono-small">{taskId}</code> — status: {status}
+            {retryCount !== null && retryCount > 0 && (
+              <> · retries: <strong>{retryCount}/3</strong></>
+            )}
+            {retryCount !== null && retryCount > 0 && retryCount < 3 && (
+              <> · <em>backing off, will retry…</em></>
+            )}
+          </p>
+          {status === "completed" && (
+            <p className="muted">
+              ✓ Succeeded on attempt {Number(retryCount ?? 0) + 1}.
+            </p>
+          )}
+          {status === "failed" && retryCount === "3" && (
+            <p className="muted">
+              ✓ Retried 3 times (backoff 1s → 2s → 4s) then dead-lettered. See
+              the worker logs in CloudWatch (/insight-ops/prod) for the
+              retry_count sequence 0→3.
+            </p>
+          )}
+        </div>
       )}
+      {error && <div className="banner error">{error}</div>}
     </div>
   );
 }

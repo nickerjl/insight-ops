@@ -54,6 +54,8 @@ def test_dispatch_and_failure_retries(fake_redis, client, broker):
 
     status = client.get(f"/api/tasks/{task_id}").json()
     assert status["status"] == "failed"
+    assert status["terminal"] == "true"
+    assert int(status["retries"]) == 3
     assert "error" in status
 
     # The actor logged a final failure (retries exhausted).
