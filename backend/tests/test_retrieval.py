@@ -55,12 +55,13 @@ def _seed(fake_redis):
 
 
 def test_tokenize_drops_stopwords_and_short_tokens():
-    tokens = tokenize("Why are payment errors increasing after deployment?")
-    assert "why" not in tokens
-    assert "are" not in tokens
-    assert "payment" in tokens
+    tokens = tokenize("Which errors came from background (dramatiq) tasks?")
+    assert "which" not in tokens
+    assert "from" not in tokens
     assert "errors" in tokens
-    assert "deployment" in tokens
+    assert "background" in tokens
+    assert "dramatiq" in tokens
+    assert "tasks" in tokens
 
 
 def test_query_retrieves_relevant_aggregation(fake_redis):
