@@ -51,9 +51,9 @@ def _enqueue_aggregation(event: dict) -> None:
         logger.warning("failed to enqueue error aggregation", exc_info=True)
 
 
-def _error_event(request: Request, *, status_code: int, error_type: str, message: str) -> dict:
+def _error_event(request: Request, *, status_code: int, error_type: str, message: str, exception: Exception = None) -> dict:
     settings = get_settings()
-    return {
+    event = {
         "service": settings.service_name,
         "endpoint": request.url.path,
         "method": request.method,
@@ -63,6 +63,24 @@ def _error_event(request: Request, *, status_code: int, error_type: str, message
         "commit_hash": settings.commit_hash,
         "request_id": getattr(request.state, "request_id", None),
         "source": "api",
+    }
+    if exception is not None:
+        event["exception"] = _serialize_exception(exception)
+    return event
+
+
+def _serialize_exception(exc: Exception) -> dict:
+    """Serialize an exception into {type, message, traceback} for storage.
+    Kept here (not in log_store) so both the aggregation event and the ring
+    buffer share one definition."""
+    import traceback as traceback_mod
+
+    return {
+        "type": type(exc).__name__,
+        "message": str(exc) or type(exc).__name__,
+        "traceback": "".join(
+            traceback_mod.format_exception(type(exc), exc, exc.__traceback__)
+        ),
     }
 
 
@@ -158,7 +176,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         logger.error("application error", extra=extra, exc_info=(type(exc), exc, exc.__traceback__))
         _push_error_log(request, extra, exc)
 
-        _enqueue_aggregation(_error_event(request, status_code=status_code, error_type=exc.error_type, message=exc.message))
+        _enqueue_aggregation(_error_event(request, status_code=status_code, error_type=exc.error_type, message=exc.message, exception=exc))
 
         return JSONResponse(status_code=status_code, content=error_payload(exc))
 
@@ -188,7 +206,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         _push_error_log(request, extra, exc)
 
         _enqueue_aggregation(
-            _error_event(request, status_code=status_code, error_type=error_type, message=error_message)
+            _error_event(request, status_code=status_code, error_type=error_type, message=error_message, exception=exc)
         )
 
         return JSONResponse(

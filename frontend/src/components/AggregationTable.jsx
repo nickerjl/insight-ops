@@ -86,9 +86,21 @@ function AggRow({ agg, expanded, onToggle }) {
                 <strong>{agg.method || "—"}</strong>
                 <span>Latest message</span>
                 <strong>{agg.message || "—"}</strong>
+                <span>Source</span>
+                <strong>{agg.source || "api"}</strong>
                 <span>Fingerprint</span>
                 <code className="mono-small">{agg.fingerprint}</code>
               </div>
+              {agg.latest_event && agg.latest_event.exception ? (
+                <div className="log-detail-wrap">
+                  <strong>{agg.latest_event.exception.type || "—"}</strong>
+                  <span className="muted"> · {agg.latest_event.exception.message || ""}</span>
+                  <details open>
+                    <summary>Traceback</summary>
+                    <pre className="log-detail">{agg.latest_event.exception.traceback || "—"}</pre>
+                  </details>
+                </div>
+              ) : null}
               {(agg.latest_event || agg.message) && (
                 <details>
                   <summary>Latest log (raw)</summary>

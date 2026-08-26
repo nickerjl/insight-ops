@@ -64,3 +64,27 @@ def test_aggregation_carries_source_for_task(fake_redis):
     )
     aggs = list_aggregations(fake_redis)
     assert aggs[0]["source"] == "task"
+
+
+def test_latest_event_includes_traceback(fake_redis):
+    """The aggregation's latest_event must carry the full exception traceback
+    so expanding an aggregation shows the stack trace."""
+    import traceback as tb
+
+    exc = None
+    try:
+        raise ConnectionError("simulated provider timeout")
+    except ConnectionError as e:
+        exc = e
+    exception = {
+        "type": type(exc).__name__,
+        "message": str(exc),
+        "traceback": "".join(tb.format_exception(type(exc), exc, exc.__traceback__)),
+    }
+    record_error_event(fake_redis, {**BASE, "request_id": "r1", "exception": exception})
+    aggs = list_aggregations(fake_redis)
+    latest = aggs[0]["latest_event"]
+    assert latest is not None
+    assert latest["exception"]["type"] == "ConnectionError"
+    assert "Traceback" in latest["exception"]["traceback"]
+    assert "simulated provider timeout" in latest["exception"]["message"]

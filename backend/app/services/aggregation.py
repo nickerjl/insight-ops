@@ -35,6 +35,7 @@ _EVENT_FIELDS = (
     "fingerprint",
     "display_name",
     "source",
+    "exception",
 )
 
 

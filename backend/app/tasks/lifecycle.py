@@ -55,6 +55,17 @@ def _actor_name(message: dramatiq.Message) -> str:
     return getattr(message, "actor_name", "unknown") or "unknown"
 
 
+def _serialize_exception(exc: Exception) -> dict:
+    """Serialize an exception into {type, message, traceback} for storage."""
+    return {
+        "type": type(exc).__name__,
+        "message": redact_text(str(exc)) or type(exc).__name__,
+        "traceback": "".join(
+            traceback_mod.format_exception(type(exc), exc, exc.__traceback__)
+        ),
+    }
+
+
 def _settings_retries() -> int:
     try:
         return get_settings().dramatiq_max_retries
@@ -77,6 +88,7 @@ def _enqueue_error_aggregation(actor: str, exc: Exception, endpoint: str) -> Non
             "request_id": None,
             "display_name": actor,
             "source": "task",
+            "exception": _serialize_exception(exc),
         }
         enqueue_error_aggregation(event)
     except Exception:  # pragma: no cover - never break task completion
