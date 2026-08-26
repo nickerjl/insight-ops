@@ -48,6 +48,10 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    # The image ships an HTTP healthcheck; the worker serves no HTTP, so
+    # disable it (matches the dev compose).
+    healthcheck:
+      disable: true
     logging:
       driver: awslogs
       options:
