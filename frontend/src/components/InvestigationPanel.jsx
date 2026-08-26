@@ -1,8 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 
 const POLL_INTERVAL_MS = 1500;
 const MAX_POLLS = 60;
+
+// Rotating placeholder examples — each is a realistic investigation question
+// the system can actually answer from the aggregated error evidence.
+const PLACEHOLDER_EXAMPLES = [
+  "e.g. Why are payment errors increasing?",
+  "e.g. Which errors came from background (dramatiq) tasks?",
+  "e.g. What is the most frequent error today?",
+  "e.g. What is the root cause of the latest NameError?",
+  "e.g. Are the errors related to a specific deployment?",
+];
 
 export default function InvestigationPanel() {
   const [query, setQuery] = useState("");
@@ -11,6 +21,17 @@ export default function InvestigationPanel() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+  // Rotate the placeholder example every few seconds so users see the kinds
+  // of questions the AI investigation can answer.
+  useEffect(() => {
+    const timer = setInterval(
+      () => setPlaceholderIndex((i) => (i + 1) % PLACEHOLDER_EXAMPLES.length),
+      4000
+    );
+    return () => clearInterval(timer);
+  }, []);
 
   async function submit(event) {
     event.preventDefault();
@@ -59,7 +80,7 @@ export default function InvestigationPanel() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder='e.g. "Why are payment errors increasing?"'
+          placeholder={PLACEHOLDER_EXAMPLES[placeholderIndex]}
           maxLength={500}
           aria-label="Investigation question"
         />
